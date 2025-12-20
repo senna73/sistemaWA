@@ -22,6 +22,7 @@ use Mpdf\Mpdf;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\Validator;
 
@@ -105,6 +106,7 @@ class DailyRateController extends Controller
         $allowedCompanyIds = UserHasCompany::where('user_id', Auth::id())
             ->where('active', true)
             ->pluck('company_id');
+
         $companies = Company::whereIn('id', $allowedCompanyIds)
             ->where('active', true)
             ->get();
@@ -120,7 +122,7 @@ class DailyRateController extends Controller
         $collaborators = Collaborator::whereIn('id', $collaboratorIds)
             ->where('active', true)
             ->get();
-
+            
         return View('app.daily-rate.edit', [
             'collaborators' => $collaborators,
             'companies' => $companies,

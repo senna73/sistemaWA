@@ -1,7 +1,42 @@
 <x-app-layout>
+    <style>
+        .fab-container {
+            position: fixed;
+            bottom: 30px; 
+            right: 30px; 
+            z-index: 1000; 
+        }
+
+        .fab-button {
+            padding: 15px 20px;
+            border-radius: 30px;
+            
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            white-space: nowrap; 
+            font-weight: bold;
+            text-decoration: none;
+            
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+
+    <div class="fab-container">
+        
+        
+        <a href="{{ route('acordo-valor-extra.index') }}" 
+        class="btn btn-primary fab-button" 
+        title="Gerenciar Regras de Valor Extra">
+        
+        <i class="fas fa-money-check-alt fa-lg"></i> 
+        
+        Valores Extra 
+    </a> 
+    </div>
     <div class="container">
         <div class="md-3 mb-3">
-
+            
             <a href="{{ route('daily-rate.create') }}" class="btn btn-outline-primary w-100">Registrar Diária</a>
         </div>
 

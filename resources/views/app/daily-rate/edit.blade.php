@@ -58,6 +58,7 @@
                     
                     <input type="text" class="form-control" id="imposto_paid_id" name="imposto_paid_id" hidden readonly value="0">
 <!-- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -->
+<!-- Abaixo está a parte da tela reservada para usuários com permissão de acesso e registro de dados financeiros -->
                     <div {{ Auth::user()->hasPermissionTo('Visualizar e inserir informações financeiras nas diárias') ? '' : 'hidden' }}>
                         
                         
@@ -166,6 +167,8 @@
         });
         $('#collaborator_id').on('input change', function(){
             getSelectedColaborator($(this).val());
+
+            verificarRegraValorExtra();
         });
 
         $('#transport_id').on('input change', function(){
@@ -182,6 +185,8 @@
             getSelectedCompany($(this).val());
             getCompanySections($(this).val());
             //getHourlyRate();
+
+            verificarRegraValorExtra();
         });
         $('#sectionSelect_id').on('input change', function () {
             selectedSection = companySections.find(item => item.section_id === Number($(this).val()));
@@ -228,6 +233,46 @@
         });
         moneyMask.mask('.money');
     });
+
+    function verificarRegraValorExtra() {
+        const empresaId = $('#company_id').val();
+        const colaboradorId = $('#collaborator_id').val();
+        
+        // Campo para valor extra
+        const $additionField = $('#addition');
+        $additionField.val(0);
+
+        if (empresaId && colaboradorId) {
+            $.ajax({
+                url: `/rules/acordo-valor-extra/find/${empresaId}/${colaboradorId}`, 
+                method: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response && response.value !== undefined) {
+                        $additionField.val(response.value);
+                        
+                        calcular(); 
+                        
+                        console.log(`Valor extra carregado: ${response.value}`);
+                    } else {
+                        $additionField.val(0);
+                        calcular();
+                        console.error("Resposta do servidor não continha 'value'. Definido como 0.");
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error("Erro ao buscar regra de valor extra:", status, error);
+                    
+                    $additionField.val(0);
+                    calcular();
+                }
+            });
+
+        } else {
+            $additionField.val(0);
+            calcular();
+        }
+    }
 
     function post() {
         $.ajax({
@@ -434,6 +479,7 @@
             pay_amount = calculate_pay_perHour(pay_amount);
             earned = calculate_pay_perHour(selectedSection.earned);
         }
+        pay_amount += addition;
 
         $('#employee_pay_id').val((pay_amount + feeding - employee_discount).toFixed(2));
         let inss_discount = $('#inss_id').val();
@@ -444,7 +490,7 @@
         let tax = ((parseFloat(document.getElementById('imposto_id').value) || 0) / 100);
         console.log("imposto: ", tax);
         
-        let total = ((earned) + addition).toFixed(2);
+        let total = ((earned)).toFixed(2);
         let total_liq = (total * (1-tax) - (pay_amount + feeding - employee_discount) - transport - inss_discount - leaderComission).toFixed(2);
 
         $("#leaderComission_id").val(leaderComission.toFixed(2));
