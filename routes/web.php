@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AcordoValorExtraController;
 use App\Http\Controllers\CompanyHasSectionController;
 use App\Http\Controllers\DailyRateController;
 use App\Http\Controllers\ProfileController;
@@ -63,7 +64,24 @@ Route::middleware('auth')->group(function () {
         Route::put('/{id}', [DailyRateController::class, 'update'])->name('daily-rate.update')->middleware('permission:Atualizar diárias');
         Route::delete('/{id}', [DailyRateController::class, 'destroy'])->name('daily-rate.destroy')->middleware('permission:Deletar diárias');
         
+        
     });
+    
+    Route::prefix('rules/acordo-valor-extra')->middleware('permission:Visualizar e inserir informações financeiras nas diárias')->group(function () {
+        
+        Route::get('/', [AcordoValorExtraController::class, 'index'])->name('acordo-valor-extra.index');
+        
+        Route::get('/list/{company_id}', [AcordoValorExtraController::class, 'list'])->name('acordo-valor-extra.data.list');
+        
+        Route::get('/find/{company_id}/{colaborator_id}', [AcordoValorExtraController::class, 'findExtraValueAgreement'])->name('acordo-valor-extra.data.find');
+        
+        Route::get('/{id}', [AcordoValorExtraController::class, 'item'])->name('acordo-valor-extra.data.show');
+        Route::post('/create', [AcordoValorExtraController::class, 'create'])->name('acordo-valor-extra.data.create');
+        Route::delete('/delete/{id}', [AcordoValorExtraController::class, 'delete'])->name('acordo-valor-extra.data.create');
+        
+    });
+
+
     Route::get('get-company-sections/{companyId}', [DailyRateController::class, 'getCompanySections'])->name('company.sections')->middleware('permission:Formulário de criação dos diárias');
     Route::get('get-company/{companyId}', function ($companyId) {return Company::findOrFail($companyId);})->name('company.company');
     Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {return Collaborator::findOrFail($colaboratorId);})->name('company.colaborator');
