@@ -115,31 +115,37 @@
     }
 
     function update(id) {
+        let formData = $('#form-edit-user').serialize();
+        
+        let permissionsData = $('#form-permissions-user').serialize();
+        
+        if (!permissionsData) {
+            permissionsData = "permissions="; 
+        }
+
         $.ajax({
             url: "{{ route('users.update', '') }}" + '/' + id,
             type: 'PUT',
             headers: {
                 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             },
-            data: $('#form-edit-user').serialize() + '&' + $('#form-permissions-user').serialize(),
+            // Concatenamos os dois
+            data: formData + '&' + permissionsData,
             success: function(response) {
                 Swal.fire({
                     title: response?.title ?? 'Sucesso!',
-                    text: response?.message ?? 'Sucesso na ação!',
+                    text: response?.message ?? 'Usuário atualizado com sucesso!',
                     icon: response?.type ?? 'success'
-                }).then((result) => {
-                    $('#form-edit-user')[0].reset();
-                    $('#form-permissions-user')[0].reset();
-
+                }).then(() => {
                     window.location.reload();
                 });
             },
             error: function(response) {
-                response = JSON.parse(response.responseText);
+                let errorData = JSON.parse(response.responseText);
                 Swal.fire({
-                    title: response?.title ?? 'Oops!',
-                    html: response?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
-                    icon: response?.type ?? 'error'
+                    title: errorData?.title ?? 'Oops!',
+                    html: errorData?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
+                    icon: 'error'
                 });
             }
         });

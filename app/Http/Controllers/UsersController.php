@@ -14,6 +14,7 @@ use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
@@ -153,75 +154,84 @@ class UsersController extends Controller
 
 
 
-public function edit($id)
-{
-    $user = User::findOrFail($id);
+    public function edit($id)
+    {
+        $user = User::findOrFail($id);
 
-    $selectedCompanies = UserHasCompany::where('user_id', $user->id)
-        ->where('active', true)
-        ->pluck('company_id')
-        ->toArray();
+        $selectedCompanies = UserHasCompany::where('user_id', $user->id)
+            ->where('active', true)
+            ->pluck('company_id')
+            ->toArray();
 
-    return view('app.users.edit', [
-        'user' => $user,
-        'permissions' => Permission::all(),
-        'collaborators' => Collaborator::getActiveLeaders(),
-        'companies' => Company::getActive(),
-        'selectedCompanies' => $selectedCompanies,
-    ]);
-}
+        return view('app.users.edit', [
+            'user' => $user,
+            'permissions' => Permission::all(),
+            'collaborators' => Collaborator::getActiveLeaders(),
+            'companies' => Company::getActive(),
+            'selectedCompanies' => $selectedCompanies,
+        ]);
+    }
+
     public function update(Request $request, $id){
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'max:255'],
+            'email' => [
+                'required',
+                'string',
+                'lowercase',
+                'email',
+                'max:255',
+                Rule::unique(User::class)
+                ->where('active', true)
+                ->whereNot('id', $id),
+            ],
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+        ], [
+            'name.required' => 'O campo nome é obrigatório.',
+            'name.string' => 'O nome deve ser um texto válido.',
+            'name.max' => 'O nome não pode ter mais de 255 caracteres.',
+            
+            'email.required' => 'O campo e-mail é obrigatório.',
+            'email.string' => 'O e-mail deve ser um texto válido.',
+            'email.lowercase' => 'O e-mail deve estar em letras minúsculas.',
+            'email.email' => 'O e-mail informado não é válido.',
+            'email.max' => 'O e-mail não pode ter mais de 255 caracteres.',
+            'email.unique' => 'Este e-mail já está em uso por outro usuário.',
+            
+            'password.confirmed' => 'A confirmação da senha não confere.',
+        ]);
+        
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => implode("\n", $validator->errors()->all()),
+            ], 422);
+        }
+        
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
-
-            $validator = Validator::make($request->all(), [
-                'name' => ['required', 'string', 'max:255'],
-                'email' => [
-                    'required',
-                    'string',
-                    'lowercase',
-                    'email',
-                    'max:255',
-                    Rule::unique(User::class)
-                        ->where('active', true)
-                        ->whereNot('id', $id),
-                ],
-                'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
-            ], [
-                'name.required' => 'O campo nome é obrigatório.',
-                'name.string' => 'O nome deve ser um texto válido.',
-                'name.max' => 'O nome não pode ter mais de 255 caracteres.',
-
-                'email.required' => 'O campo e-mail é obrigatório.',
-                'email.string' => 'O e-mail deve ser um texto válido.',
-                'email.lowercase' => 'O e-mail deve estar em letras minúsculas.',
-                'email.email' => 'O e-mail informado não é válido.',
-                'email.max' => 'O e-mail não pode ter mais de 255 caracteres.',
-                'email.unique' => 'Este e-mail já está em uso por outro usuário.',
-
-                'password.confirmed' => 'A confirmação da senha não confere.',
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'message' => implode("\n", $validator->errors()->all()),
-                ], 422);
-            }
 
             $user = User::findOrFail($id);
+
             $user->update([
                 'name' => $request->name,
                 'email' => $request->email,
-                'password' => $request->password ? Hash::make($request->password) : $user->password,
                 'collaborator_id' => $request->collaborator_id,
             ]);
-
+            if ($request->filled('password')) {
+                $data['password'] = Hash::make($request->password);
+            }
             // Seta as pemissoes no usuário
-            $user->givePermissionTo(array_keys($request->input('permissions', [])));
+            //$user->givePermissionTo(array_keys($request->input('permissions', [])));
+            //$this->store_user_has_company($request->allowed_companies, $user);
+            
+            $permissions = $request->input('permissions', []);
+            $permissionIds = array_keys($permissions, 'on');
+
+            $user->syncPermissions($permissionIds);
+
             $this->store_user_has_company($request->allowed_companies, $user);
-
+            
             DB::commit();
-
             return response()->json([
                 'title' => 'Sucesso!',
                 'message' => 'Usuário atualizado com sucesso!',
