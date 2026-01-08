@@ -368,7 +368,7 @@ class ReportsController extends Controller
             $groupedData[$companyId]['collaborators'][$collaboratorId]['sections'][$sectionId]['daily_rates'][] = [
                 'start' => $rate->start,
                 'end' => $rate->end,
-                'pay_amount' => $rate->pay_amount + $rate->addition,
+                'pay_amount' => $rate->pay_amount,
                 'leader_comission' => $rate->leader_comission,
                 'user' => [
                     'user_id' => $rate->user_id,
