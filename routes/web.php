@@ -11,7 +11,7 @@ use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CollaboratorsController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\finance\admin\LeaderCostCenterController;
-use App\Http\Controllers\Finance\Collaborator\CollaboratorFinanceController;
+use App\Http\Controllers\Finance\collaborator\CollaboratorFinanceController;
 use App\Http\Controllers\Finance\companies\CompanyAssignmentController;
 use App\Http\Controllers\ReportsController;
 use App\Livewire\CashFlow;

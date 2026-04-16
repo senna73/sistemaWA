@@ -1,7 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Finance\Collaborator;
-
+namespace App\Http\Controllers\Finance\collaborator;
 use App\Http\Controllers\Controller;
 use App\Models\DailyRate;
 use App\Models\CollaboratorWallet;
