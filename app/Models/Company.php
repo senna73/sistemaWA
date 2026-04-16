@@ -32,4 +32,21 @@ class Company extends Model
     {
         return $this->hasMany(CompanyHasSection::class);
     }
+
+    public function costCenter()
+    {
+        return $this->hasOne(LeaderCostCenter::class, 'company_id');
+    }
+
+    public function leader()
+    {
+        return $this->hasOneThrough(
+            User::class,
+            LeaderCostCenter::class,
+            'company_id',
+            'id',
+            'id',
+            'leader_id'
+        );
+    }
 }

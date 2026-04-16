@@ -69,46 +69,96 @@
           <div class="menu-inner-shadow"></div>
 
           <ul class="menu-inner py-1">
-            <!-- Dashboard -->
-            <li class="menu-item active">
+            <li class="menu-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
               <a href="{{ route('dashboard') }}" class="menu-link">
                 <i class="menu-icon tf-icons bx bx-home-circle"></i>
                 <div data-i18n="Analytics">Menu Principal</div>
               </a>
             </li>
 
-            <!-- Components -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração</span></li>
           
-            <li class="menu-item">
+            <li class="menu-item {{ request()->routeIs('users.index') ? 'active' : '' }}">
                 <a href="{{ route('users.index') }}" class="menu-link">
-                  <i class="menu-icon tf-icons bx bx-collection"></i>
+                  <i class="menu-icon tf-icons bx bx-user"></i>
                   <div data-i18n="Basic">Usuários</div>
                 </a>
-              </li>
-            <li class="menu-item">
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('companies.index') ? 'active' : '' }}">
               <a href="{{ route('companies.index') }}" class="menu-link">
-                <i class="menu-icon tf-icons bx bx-collection"></i>
+                <i class="menu-icon tf-icons bx bx-store"></i>
                 <div data-i18n="Basic">Estabelecimentos</div>
               </a>
             </li>
-            <li class="menu-item">
+
+            <li class="menu-item {{ request()->routeIs('collaborators.index') ? 'active' : '' }}">
                 <a href="{{ route('collaborators.index') }}" class="menu-link">
-                    <i class="menu-icon tf-icons bx bx-collection"></i>
+                    <i class="menu-icon tf-icons bx bx-group"></i>
                     <div data-i18n="Basic">Colaboradores</div>
                 </a>
             </li>
-            <li class="menu-item">
+
+            <li class="menu-item {{ request()->routeIs('daily-rate.index') ? 'active' : '' }}">
                 <a href="{{ route('daily-rate.index') }}" class="menu-link">
-                    <i class="menu-icon tf-icons bx bx-collection"></i>
-                    <div data-i18n="Basic">Diarias</div>
+                    <i class="menu-icon tf-icons bx bx-calendar-event"></i>
+                    <div data-i18n="Basic">Diárias</div>
                 </a>
             </li>
             
-            <li class="menu-item">
+            <li class="menu-item {{ request()->routeIs('finantial-results') ? 'active' : '' }}">
                 <a href="{{ route('finantial-results') }}" class="menu-link">
-                    <i class="menu-icon tf-icons bx bx-collection"></i>
-                    <div data-i18n="Basic">Analitics Financeiro</div>
+                    <i class="menu-icon tf-icons bx bx-pie-chart-alt-2"></i>
+                    <div data-i18n="Basic">Analytics Financeiro</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('admin.batches.index') ? 'active' : '' }}">
+                <a href="{{ route('admin.batches.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-cog"></i>
+                    <div data-i18n="Basic">Processamento</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('admin.collaborator.earnings') ? 'active' : '' }}">
+                <a href="{{ route('admin.collaborator.earnings') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-wallet"></i>
+                    <div data-i18n="Basic">Ganhos de Colaborador</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('admin.leader.cost-center.index') ? 'active' : '' }}">
+                <a href="{{ route('admin.leader.cost-center.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-list-check"></i>
+                    <div data-i18n="Basic">Centro de Custo</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('admin.finance.processor.index') ? 'active' : '' }}">
+                <a href="{{ route('admin.finance.processor.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-credit-card"></i>
+                    <div data-i18n="Basic">Centro de Pagamentos</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('cost-centers.index') ? 'active' : '' }}">
+                <a href="{{ route('cost-centers.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-buildings"></i>
+                    <div data-i18n="Basic">Gestão de Centros</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('analytics.*') ? 'active' : '' }}">
+                <a href="{{ route('analytics.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
+                    <div data-i18n="Basic">Análise de Dados</div>
+                </a>
+            </li>
+
+            <li class="menu-item {{ request()->routeIs('admin.finance.ledger.index') ? 'active' : '' }}">
+                <a href="{{ route('admin.finance.ledger.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-book-content"></i>
+                    <div data-i18n="Basic">Capital Empresarial</div>
                 </a>
             </li>
           </ul>

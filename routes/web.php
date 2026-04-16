@@ -1,12 +1,18 @@
 <?php
 
 use App\Http\Controllers\AcordoValorExtraController;
+use App\Http\Controllers\Finance\Admin\ProcessorController;
+use App\Http\Controllers\Finance\Admin\BatchesController;
+use App\Http\Controllers\Finance\Analytics\AnalyticsController;
 use App\Http\Controllers\CompanyHasSectionController;
 use App\Http\Controllers\DailyRateController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CollaboratorsController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\finance\admin\LeaderCostCenterController;
+use App\Http\Controllers\Finance\Collaborator\CollaboratorFinanceController;
+use App\Http\Controllers\Finance\companies\CompanyAssignmentController;
 use App\Http\Controllers\ReportsController;
 use App\Livewire\CashFlow;
 use App\Livewire\FinantialResults;
@@ -100,7 +106,56 @@ Route::middleware('auth')->group(function () {
     //Route::delete('/company-sections/remove', [CompanyHasSectionController::class, 'remove']);
     Route::get('/resultados-financeiros', FinantialResults::class)->name('finantial-results')
     ->middleware('permission:Visualizar e inserir informações financeiras nas diárias');
-
+    
     //Route::get('/cash-flow', CashFlow::class)->name('finantial-results2');
+
 });
+
+Route::middleware(['auth', 'permission:Processar boletos e confirmar recebimento'])->group(function () {
+    Route::get('/index', [BatchesController::class, 'index'])->name('admin.batches.index');
+    Route::get('/create', [BatchesController::class, 'create'])->name('admin.batches.create');
+    Route::get('/show{batch}', [BatchesController::class, 'show'])->name('admin.batches.show');
+    Route::post('/store', [BatchesController::class, 'store'])->name('admin.batches.store');
+    Route::post('/process', [BatchesController::class, 'process'])->name('admin.batches.process');
+    Route::post('/receipt', [BatchesController::class, 'confirm_receipt'])->name('admin.batches.confirm-receipt');
+});
+
+Route::middleware(['auth', 'permission:Gerir pagamento de colaboradores e custos'])->group(function () {
+    Route::get('/collaborator/earnings', [CollaboratorFinanceController::class, 'index'])->name('admin.collaborator.earnings');
+    Route::get('/collaborator/earnings/{id}', [CollaboratorFinanceController::class, 'get_wallet'])->name('admin.collaborator.earnings.single');
+    
+    Route::prefix('admin/finance/processor')
+        ->name('admin.finance.processor.')
+        ->group(function () {
+            Route::get('/', [ProcessorController::class, 'index'])->name('index');
+            Route::get('/collaborators', [ProcessorController::class, 'collaboratorPayments'])->name('collaborators');
+            Route::get('/pix', [ProcessorController::class, 'pixCosts'])->name('pix');
+            Route::post('/pay-wallet/{collaborator}', [ProcessorController::class, 'payWallet'])->name('pay-wallet');
+            Route::post('/pay-pix/{cost}', [ProcessorController::class, 'payPix'])->name('pay-pix');
+            Route::post('/reject-pix/{cost}', [ProcessorController::class, 'rejectPix'])->name('reject-pix');
+        });
+});
+
+Route::middleware(['auth', 'permission:Gestão dos centros de custo'])->group(function () {
+    Route::get('/leader/cost-center', [LeaderCostCenterController::class, 'render'])->name('admin.leader.cost-center.index');
+    Route::get('/admin/centros-de-custo', [CompanyAssignmentController::class, 'index'])->name('cost-centers.index');
+    Route::patch('/admin/companies/{company}/assign-leader', [CompanyAssignmentController::class, 'updateLeader'])->name('companies.update-leader');
+});
+
+Route::middleware(['auth', 'permission:Visualizar livro razão'])->group(function () {
+    Route::prefix('admin/finance/ledger')
+        ->name('admin.finance.ledger.')
+        ->group(function () {
+            Route::get('/', [App\Http\Controllers\Finance\Admin\LedgerController::class, 'index'])->name('index');
+        });
+});
+
+Route::middleware(['auth', 'permission:Acesso aos dados de diárias'])->group(function () {
+    Route::prefix('analytics')->name('analytics.')->group(function () {
+        Route::get('/', [AnalyticsController::class, 'index'])->name('index');
+        Route::get('/collaborators', [AnalyticsController::class, 'collaborators'])->name('collaborators');
+        Route::get('/establishments', [AnalyticsController::class, 'establishments'])->name('establishments');
+    });
+});
+
 require __DIR__.'/auth.php';

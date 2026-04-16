@@ -5,9 +5,17 @@ import forms from '@tailwindcss/forms';
 export default {
     content: [
         './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
+        
+        './vendor/rappasoft/laravel-livewire-tables/resources/views/**/*.blade.php',
+        
         './storage/framework/views/*.php',
         './resources/views/**/*.blade.php',
-        './vendor/rappasoft/laravel-livewire-tables/resources/views/**/*.blade.php',
+        
+        './resources/js/**/*.vue',
+        './resources/js/**/*.js',
+
+        './app/Livewire/**/*.php',
+        './app/Http/Livewire/**/*.php',
     ],
 
     theme: {

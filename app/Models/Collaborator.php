@@ -31,4 +31,12 @@ class Collaborator extends Model
     {
         return self::query()->where('active', '=', true)->where('is_leader','=', true)->get();
     }
+    public function wallet()
+    {
+        return $this->hasOne(CollaboratorWallet::class);
+    }
+    public function dailyRates()
+    {
+        return $this->hasMany(DailyRate::class, 'collaborator_id'); 
+    }
 }

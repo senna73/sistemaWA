@@ -44,6 +44,13 @@ class PermissionsSeeder extends Seeder
 
         Permission::findOrCreate('Visualizar e inserir informações financeiras nas diárias');
 
+
+        Permission::findOrCreate('Processar boletos e confirmar recebimento');
+        Permission::findOrCreate('Gerir pagamento de colaboradores e custos');
+        Permission::findOrCreate('Gestão dos centros de custo');
+        Permission::findOrCreate('Visualizar livro razão');
+        Permission::findOrCreate('Acesso aos dados de diárias');
+
         $user = User::where('id', '=', 1)->first();
         $user->givePermissionTo(Permission::all());
     }

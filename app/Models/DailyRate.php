@@ -68,4 +68,11 @@ class DailyRate extends Model
             ->whereColumn('company_has_section.company_id', 'company_id');
     }
 
+    // Colaborador do usuário
+    public function leader()
+    {
+        return $this->belongsTo(Collaborator::class, 'user_id', 'id');
+
+    }
+
 }

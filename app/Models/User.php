@@ -62,4 +62,16 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Collaborator::class, 'collaborator_id', 'id');
     }
+
+    public function companies()
+    {
+        return $this->hasManyThrough(
+            Company::class,
+            LeaderCostCenter::class,
+            'leader_id',
+            'id',
+            'id',
+            'company_id'
+        );
+    }
 }

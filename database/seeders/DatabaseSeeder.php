@@ -49,6 +49,7 @@ class DatabaseSeeder extends Seeder
         
         Section::firstOrCreate(['name'=> 'Mercearia Central',]);
         Section::firstOrCreate(['name'=> 'Flv (7:20 horas)',]);
+        /*
          // Criando um novo registro na tabela config_table
         ConfigTable::firstOrCreate([
             'id' => 'inss_default', // Se o id for um UUID, senão pode ser um valor fixo
@@ -59,6 +60,6 @@ class DatabaseSeeder extends Seeder
             'id' => 'tax_default',
             'value' => 14.32,
         ]);
-
+        */
     }
 }
