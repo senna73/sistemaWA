@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\finance\admin;
+namespace App\Http\Controllers\Finance\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\CostCategory;

@@ -10,7 +10,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\CollaboratorsController;
 use App\Http\Controllers\CompanyController;
-use App\Http\Controllers\finance\admin\LeaderCostCenterController;
+use App\Http\Controllers\Finance\Admin\LeaderCostCenterController;
 use App\Http\Controllers\Finance\collaborator\CollaboratorFinanceController;
 use App\Http\Controllers\Finance\companies\CompanyAssignmentController;
 use App\Http\Controllers\ReportsController;
