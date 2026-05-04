@@ -33,6 +33,8 @@ class FinancialBatches extends Model
     protected $casts = [
         'total_amount' => 'decimal:2',
         'remaining_amount' => 'decimal:2',
+        'period_start' => 'date', 
+        'period_end' => 'date',
     ];
 
     public function ledgers(): HasMany

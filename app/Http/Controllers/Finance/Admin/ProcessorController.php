@@ -35,13 +35,45 @@ class ProcessorController extends Controller
     /**
      * Tela de Pagamentos de Colaboradores
      */
-    public function collaboratorPayments()
+    public function collaboratorPayments(Request $request)
     {
-        $wallets = CollaboratorWallet::with('collaborator')
-            ->where('balance', '>', 0)
+        $today = now();
+
+        if ($today->day <= 15) {
+            $start = $today->copy()->subMonth()->day(16)->startOfDay();
+            $end = $today->copy()->subMonth()->endOfMonth();
+        } else {
+            $start = $today->copy()->startOfMonth();
+            $end = $today->copy()->day(15)->endOfDay();
+        }
+
+        $wallets = CollaboratorWallet::with('collaborator:id,name,pix_key')
+            ->withSum(['transactions as period_credits_sum' => function ($query) use ($start, $end) {
+                $query->whereBetween('occurred_at', [$start, $end])
+                    ->where('type', 'credit');
+            }], 'amount')
+            ->with(['transactions' => function ($query) use ($start) {
+                $query->where('occurred_at', '>=', $start)
+                    ->where('type', 'debit');
+            }])
             ->get();
 
-        return view('app.finance.admin.processor.collaborator-payments', compact('wallets'));
+        $wallets = $wallets->filter(function ($wallet) {
+            $creditos = (float) $wallet->period_credits_sum;
+
+            if ($creditos <= 0) {
+                return false;
+            }
+
+            // Verifica se existe um débito que "anulou" esses créditos
+            $jaPago = $wallet->transactions->contains(function ($transaction) use ($creditos) {
+                return abs((float) $transaction->amount) == $creditos;
+            });
+
+            return !$jaPago;
+        });
+
+        return view('app.finance.admin.processor.collaborator-payments', compact('wallets', 'start', 'end'));
     }
 
     /**
@@ -56,42 +88,55 @@ class ProcessorController extends Controller
         
         return view('app.finance.admin.processor.pix-costs', compact('pendingCosts'));
     }
-
+        
     public function payWallet(
-        Collaborator $collaborator,
+        Request $request,
+        $walletId,
         CollaboratorWalletService $walletService, 
         LedgerService $ledgerService 
     ) {
-        $wallet = $collaborator->wallet;
+        $wallet = CollaboratorWallet::with('collaborator')->findOrFail($walletId);
+        $collaborator = $wallet->collaborator;
 
-        if (!$wallet || $wallet->balance <= 0) {
-            return redirect()->back()->with('error', 'Esta carteira não possui saldo para liquidação.');
+        $amountFromRequest = (float) $request->input('amount');
+        
+        if ($amountFromRequest <= 0 || $wallet->balance < $amountFromRequest) {
+            return redirect()->back()->with('error', 'Valor inválido ou saldo insuficiente.');
         }
 
-        $amountToPay = (float) $wallet->balance;
+        $now = now();
+        if ($now->day > 15) {
+            $start = $now->copy()->startOfMonth();
+            $end = $now->copy()->day(15)->endOfDay();
+        } else {
+            $lastMonth = $now->copy()->subMonth();
+            $start = $lastMonth->copy()->day(16)->startOfDay();
+            $end = $lastMonth->copy()->endOfMonth();
+        }
+        $periodoFormatado = "de " . $start->format('d/m') . " a " . $end->format('d/m');
 
         try {
-            DB::transaction(function () use ($collaborator, $amountToPay, $walletService, $ledgerService) {
+            DB::transaction(function () use ($collaborator, $amountFromRequest, $walletService, $ledgerService, $periodoFormatado) {
                 
                 $walletService->debit(
                     $collaborator->id,
-                    $amountToPay,
-                    "Liquidação de saldo: Pagamento realizado via painel administrativo"
+                    $amountFromRequest,
+                    "Pagamento pelos serviços prestados - Período {$periodoFormatado}"
                 );
 
                 $ledgerService->payCollaborator(
                     collaboratorId: $collaborator->id,
-                    amount: $amountToPay,
-                    description: "Liquidação de Saldo - Colaborador: {$collaborator->name}",
-                    cashAccountId: 1
+                    amount: $amountFromRequest,
+                    description: "Pagamento Quinzenal ({$periodoFormatado}) - Colaborador: {$collaborator->name}",
+                    cashAccountId: 1 
                 );
             });
 
-            return redirect()->back()->with('success', "Pagamento de R$ " . number_format($amountToPay, 2, ',', '.') . " processado e registrado no ledger!");
+            return redirect()->back()->with('success', "Pagamento de R$ " . number_format($amountFromRequest, 2, ',', '.') . " realizado!");
 
         } catch (\Exception $e) {
-            Log::error("Erro na liquidação da carteira do colaborador {$collaborator->id}: " . $e->getMessage());
-            return redirect()->back()->with('error', 'Falha ao processar: ' . $e->getMessage());
+            Log::error("Erro ao liquidar: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro interno ao processar pagamento: ' . $e->getMessage());
         }
     }
 

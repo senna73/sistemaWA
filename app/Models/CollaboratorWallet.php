@@ -14,7 +14,8 @@ class CollaboratorWallet extends Model
         'collaborator_id',
         'balance',
         'total_spent',
-        'total_added'
+        'total_added',
+        'occurred_at'
     ];
 
 
@@ -33,4 +34,6 @@ class CollaboratorWallet extends Model
     {
         return $this->hasMany(CollaboratorWalletTransactions::class, 'collaborator_wallet_id');
     }
+
+    
 }

@@ -19,6 +19,7 @@ class CollaboratorWalletTransactions extends Model
         'description',
         'metadata',
         'ledger_id',
+        'occurred_at'
     ];
 
     protected $casts = [

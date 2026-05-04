@@ -70,7 +70,7 @@ class BatchesController extends Controller
         $dailyRates = DailyRate::with(['collaborator', 'leader']) 
             ->where('company_id', $batch->company_id)
             ->where('active', true)
-            ->whereBetween('start', [$batch->period_start, $batch->period_end])
+            ->whereBetween('start', [$batch->period_start->startOfDay(), $batch->period_end->endOfDay()])
             ->get();
 
         $financeiro = [

@@ -2,203 +2,185 @@
     <style>
         [x-cloak] { display: none !important; }
         
-        .main-card {
-            background: white;
-            border-radius: 2.5rem;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.05);
-            border: 1px solid #f1f5f9;
-            overflow: hidden;
-        }
+        /* Estrutura Principal */
+        .main-card { background: white; border-radius: 2rem; box-shadow: 0 15px 40px rgba(0, 0, 0, 0.04); border: 1px solid #f1f5f9; overflow: hidden; }
+        .card-header-gradient { background: #0f172a; padding: 2.5rem 3.5rem; color: white; }
+        .padding-alinhado { padding-left: 3.5rem !important; padding-right: 3.5rem !important; }
+        
+        /* Cores de Categoria e Linhas */
+        .category-row { background-color: #f8fafc; padding: 0.5rem 3.5rem; font-size: 11px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; border-y: 1px solid #f1f5f9; }
+        .row-intercalada:nth-child(even) { background-color: #fafbfc; }
+        
+        /* Botão de Expansão */
+        .btn-liquidar-sm { background: #0f172a; color: white !important; border-radius: 0.75rem; transition: all 0.2s ease; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; font-size: 10px; padding: 0.6rem 1.2rem; cursor: pointer; border: none; }
+        .btn-liquidar-sm:hover { background: #1e293b; transform: translateY(-1px); }
+        
+        /* Botão de Confirmação */
+        .btn-confirmar-pix { background: #10b981; color: white !important; border-radius: 1rem; transition: all 0.2s ease; font-weight: 800; text-transform: uppercase; font-size: 12px; padding: 1.25rem 2.5rem; cursor: pointer; border: none; letter-spacing: 0.05em; }
+        .btn-confirmar-pix:hover { background: #059669; transform: scale(1.02); box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4); }
 
-        .card-header-gradient {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-            padding: 3rem; 
-            color: white;
-        }
+        /* Estilos de Valor na Listagem */
+        .badge-pagamento-verde { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; padding: 0.5rem 1rem; border-radius: 0.75rem; font-weight: 800; font-size: 13px; display: inline-block; }
+        .texto-saldo-cinza { color: #94a3b8; font-weight: 600; font-size: 13px; }
 
-        .padding-alinhado {
-            padding-left: 3.5rem !important;
-            padding-right: 3.5rem !important;
-        }
-
-        .category-row {
-            background-color: #f1f5f9;
-            padding: 0.5rem 3.5rem;
-            font-size: 12px;
-            font-weight: 900;
-            color: #64748b;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            border-top: 1px solid #e2e8f0;
-            border-bottom: 1px solid #e2e8f0;
-        }
-
-        .row-intercalada:nth-child(even) {
-            background-color: #f8fafc;
-        }
-
-        .btn-liquidar-clean {
-            background: #0f172a;
-            color: white !important;
-            border-radius: 1rem;
-            transition: all 0.2s ease;
-            font-weight: 800;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            font-size: 10px;
-        }
-
-        .btn-liquidar-clean:hover {
-            background: #000;
-            transform: translateY(-2px);
-        }
-
-        .v-align-middle {
-            vertical-align: middle !important;
-        }
+        /* Card de Cópia Pix */
+        .pix-copy-card { background: #ffffff; border: 2px dashed #cbd5e1; border-radius: 1.25rem; transition: all 0.2s ease; cursor: pointer; position: relative; overflow: hidden; }
+        .pix-copy-card:hover { border-color: #10b981; background: #f0fdf4; border-style: solid; }
+        
+        /* Fundo especial para a sanfona aberta */
+        .sanfona-ativa { box-shadow: inset 0 4px 6px -4px rgba(0, 0, 0, 0.05), inset 0 -4px 6px -4px rgba(0, 0, 0, 0.05); }
     </style>
 
-    <div class="max-w-7xl mx-auto p-12" x-data="{ 
-        openModal: false, 
-        walletId: null, 
-        pixKey: '', 
-        balance: '', 
-        collaboratorName: '' 
-    }">
-
-        <template x-teleport="body">
-            <div x-show="openModal" 
-                class="fixed inset-0 z-[9999] flex items-center justify-center"
-                style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;"
-                x-cloak>
-                
-                <div class="absolute inset-0 bg-slate-900/60" 
-                    style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);"
-                    x-transition.opacity>
-                </div>
-                
-                <div @click.away="openModal = false" 
-                    x-transition:enter="transition ease-out duration-300"
-                    x-transition:enter-start="opacity-0 scale-95"
-                    x-transition:enter-end="opacity-100 scale-100"
-                    class="relative bg-white rounded-[2.5rem] shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 m-4">
-                    
-                    <div class="card-header-gradient p-8 text-center">
-                        <h3 class="text-xl font-light text-white">Confirmar <span class="font-black">Pagamento</span></h3>
-                        <p class="opacity-60 text-xs mt-2 uppercase tracking-widest text-white" x-text="collaboratorName"></p>
-                    </div>
-
-                    <div class="p-8 space-y-6 bg-white">
-                        <div class="text-center">
-                            <p class="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-1">Valor a Liquidar</p>
-                            <p class="text-4xl font-black text-slate-900">R$ <span x-text="balance"></span></p>
-                        </div>
-
-                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                            <p class="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-2">Chave PIX</p>
-                            <div class="flex items-center justify-between gap-2">
-                                <span class="font-mono text-sm text-slate-700 break-all select-all font-bold" x-text="pixKey"></span>
-                            </div>
-                        </div>
-
-                        <form :action="'/admin/finance/processor/pay-wallet/' + walletId" method="POST" class="flex flex-col gap-3">
-                            @csrf
-                            <button type="submit" class="w-full btn-liquidar-clean py-4 text-xs shadow-lg shadow-slate-900/20">
-                                Confirmar que realizei o pagamento
-                            </button>
-                            
-                            <button type="button" @click="openModal = false" class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-red-600 transition-colors">
-                                Cancelar e Voltar
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </template>
+    <div class="max-w-7xl mx-auto p-10" x-data="{ expandedId: null, copied: false }">
 
         <div class="main-card">
-            <div class="card-header-gradient flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="card-header-gradient flex justify-between items-center">
                 <div>
-                    <h2 class="text-3xl font-extralight tracking-tight">Saldos de <span class="font-black">Carteira</span></h2>
-                    <p class="opacity-50 text-sm mt-1">Agrupados por ordem alfabética.</p>
+                    <h2 class="text-2xl font-light tracking-tight">Processador de <span class="font-black">Pagamentos</span></h2>
+                    <p class="opacity-40 text-[10px] mt-1 uppercase font-bold tracking-[0.2em]">Competência: {{ $start->format('d/m') }} — {{ $end->format('d/m/y') }}</p>
                 </div>
-
                 <div class="text-right">
-                    <p class="text-[10px] uppercase font-black tracking-widest opacity-40 mb-1">Total Geral</p>
-                    <div class="flex items-baseline justify-end">
-                        <span class="text-xl font-light opacity-60 mr-2">R$</span>
-                        <span class="text-4xl font-black tracking-tighter">
-                            {{ number_format($wallets->sum('balance'), 2, ',', '.') }}
-                        </span>
-                    </div>
+                    <p class="text-[10px] uppercase font-bold opacity-40 mb-1">Total a ser pago</p>
+                    <p class="text-3xl font-black text-emerald-400">R$ {{ number_format($wallets->sum('period_credits_sum'), 2, ',', '.') }}</p>
                 </div>
             </div>
 
-            <div class="card-body-content">
-                <table class="w-full border-collapse">
+            <div class="overflow-x-auto">
+                <table class="w-full">
                     <thead>
-                        <tr class="bg-white">
-                            <th class="py-6 text-left text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] padding-alinhado">Colaborador</th>
-                            <th class="py-6 text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Saldo</th>
-                            <th class="py-6 text-center text-[11px] font-black text-slate-400 uppercase tracking-[0.2em]">Atualização</th>
-                            <th class="py-6 text-right padding-alinhado"></th>
+                        <tr class="bg-white border-b border-slate-100">
+                            <th class="py-6 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest padding-alinhado">Colaborador</th>
+                            <th class="py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Valor a Pagar</th>
+                            <th class="py-6 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Saldo em Conta</th>
+                            <th class="py-6 padding-alinhado"></th>
                         </tr>
                     </thead>
                     <tbody>
                         @php
-                            $groupedWallets = $wallets->groupBy(function($item) {
-                                return strtoupper(substr($item->collaborator->name, 0, 1));
-                            })->sortKeys();
+                            $groupedWallets = $wallets->groupBy(fn($item) => strtoupper(substr($item->collaborator->name, 0, 1)))->sortKeys();
                         @endphp
 
                         @forelse($groupedWallets as $letter => $items)
-                            <tr>
-                                <td colspan="4" class="category-row">{{ $letter }}</td>
-                            </tr>
-
+                            <tr><td colspan="4" class="category-row">{{ $letter }}</td></tr>
+                            
                             @foreach($items as $wallet)
-                            <tr class="row-intercalada hover:bg-slate-100/50 transition-colors border-b border-slate-50">
-                                <td class="py-6 v-align-middle padding-alinhado">
+                            <tr class="row-intercalada border-b border-slate-50 transition-colors hover:bg-slate-50/80">
+                                <td class="py-5 padding-alinhado">
                                     <div class="flex flex-col">
-                                        <span class="text-base font-bold text-slate-900 leading-tight">{{ $wallet->collaborator->name ?? 'N/A' }}</span>
-                                        <span class="text-[10px] text-slate-400 font-bold uppercase tracking-tighter mt-1">ID #{{ $wallet->collaborator->id ?? '0' }}</span>
+                                        <span class="text-sm font-bold text-slate-700">{{ $wallet->collaborator->name }}</span>
+                                        <span class="text-[9px] text-slate-400 font-bold uppercase">ID #{{ $wallet->collaborator->id }}</span>
                                     </div>
                                 </td>
 
-                                <td class="py-6 text-center v-align-middle">
-                                    <span class="inline-block px-4 py-2 rounded-xl text-sm font-black bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                        R$ {{ number_format($wallet->balance, 2, ',', '.') }}
+                                <td class="py-5 text-center">
+                                    <span class="badge-pagamento-verde shadow-sm">
+                                        R$ {{ number_format($wallet->period_credits_sum ?? 0, 2, ',', '.') }}
                                     </span>
                                 </td>
 
-                                <td class="py-6 text-center v-align-middle">
-                                    <div class="flex flex-col items-center">
-                                        <span class="text-sm font-bold text-slate-700">{{ $wallet->updated_at->format('d/m/Y') }}</span>
-                                        <span class="text-[10px] text-slate-400 font-bold uppercase mt-0.5">{{ $wallet->updated_at->format('H:i') }}</span>
-                                    </div>
+                                <td class="py-5 text-center">
+                                    <span class="texto-saldo-cinza">
+                                        R$ {{ number_format($wallet->balance ?? 0, 2, ',', '.') }}
+                                    </span>
                                 </td>
 
-                                <td class="py-6 text-right v-align-middle padding-alinhado">
-                                    <button type="button" 
-                                        @click="
-                                            openModal = true; 
-                                            walletId = '{{ $wallet->collaborator->id }}'; {{-- MUDANÇA AQUI --}}
-                                            pixKey = '{{ $wallet->collaborator->pix_key ?? 'Chave não cadastrada' }}'; 
-                                            balance = '{{ number_format($wallet->balance, 2, ',', '.') }}';
-                                            collaboratorName = '{{ $wallet->collaborator->name }}';
-                                        "
-                                        class="btn-liquidar-clean px-6 py-3 shadow-sm">
-                                        Liquidar
+                                <td class="py-5 text-right padding-alinhado">
+                                    <button type="button" @click="expandedId = (expandedId == '{{ $wallet->id }}' ? null : '{{ $wallet->id }}')" class="btn-liquidar-sm shadow-sm">
+                                        <span x-text="expandedId == '{{ $wallet->id }}' ? 'Fechar' : 'Liquidar'"></span>
                                     </button>
+                                </td>
+                            </tr>
+
+                            {{-- PAINEL DE LIQUIDAÇÃO (SANFONA) --}}
+                            <tr x-show="expandedId == '{{ $wallet->id }}'" x-collapse x-cloak>
+                                <td colspan="4" class="bg-slate-50 border-b border-slate-200" style="padding: 0 !important;">
+                                    
+                                    <div class="w-full py-16 d-flex flex-column align-items-center justify-content-center text-center">
+                                        
+                                        <div class="w-full max-w-3xl px-6">
+                                            
+                                            {{-- Identificação --}}
+                                            <div class="mb-4">
+                                                <p class="text-slate-400 text-[11px] uppercase font-black tracking-[0.4em] mb-2">Pagamento para</p>
+                                                <h3 class="text-3xl font-bold text-slate-800 tracking-tight">
+                                                    {{ $wallet->collaborator->name }}
+                                                </h3>
+                                            </div>
+
+                                            {{-- Container da Chave PIX --}}
+                                            <div class="d-flex flex-column align-items-center mt-8">
+                                                @php
+                                                    $rawKey = $wallet->collaborator->pix_key ?? '';
+                                                    $formattedKey = $rawKey;
+
+                                                    // Formatação para destaque visual
+                                                    if (strlen($rawKey) == 11 && is_numeric($rawKey)) {
+                                                        $formattedKey = substr($rawKey, 0, 3) . '.' . substr($rawKey, 3, 3) . '.' . substr($rawKey, 6, 3) . '-' . substr($rawKey, 9);
+                                                    } elseif (strlen($rawKey) == 13 && str_starts_with($rawKey, '55')) {
+                                                        $formattedKey = '(' . substr($rawKey, 2, 2) . ') ' . substr($rawKey, 4, 5) . '-' . substr($rawKey, 9);
+                                                    }
+                                                @endphp
+
+                                                <div @click="navigator.clipboard.writeText('{{ $rawKey }}'); 
+                                                            copied = '{{ $wallet->id }}'; 
+                                                            setTimeout(() => copied = false, 2000)" 
+                                                    :class="{ 'bg-emerald-50 border-emerald-400': copied === '{{ $wallet->id }}' }"
+                                                    class="inline-flex items-center gap-6 px-10 py-5 border-2 border-slate-300 rounded-2xl cursor-pointer transition-colors duration-200 group relative overflow-hidden"
+                                                    style="background-color: #ffffff; border-style: dashed !important; min-width: 480px; justify-content: space-between;">
+                                                    
+                                                    <div class="flex flex-col items-start text-left">
+                                                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Chave PIX para transferência</span>
+                                                        
+                                                        {{-- CHAVE PIX: Negrito máximo e 15% maior que o texto padrão --}}
+                                                        <span class="font-mono text-slate-900 tracking-tight" 
+                                                            style="font-size: 1.15em !important; font-weight: 900 !important; display: block;">
+                                                            {{ $formattedKey ?? 'SEM CHAVE PIX' }}
+                                                        </span>
+                                                    </div>
+                                                    
+                                                    <div class="flex flex-col items-center border-l-2 border-slate-100 ps-6">
+                                                        <span x-show="copied !== '{{ $wallet->id }}'" class="text-[11px] font-black text-emerald-600 uppercase tracking-widest">
+                                                            Copiar
+                                                        </span>
+                                                    </div>
+
+                                                    {{-- Overlay de Feedback (Piscada de cor ao copiar) --}}
+                                                    <div x-show="copied === '{{ $wallet->id }}'" 
+                                                        x-transition.opacity
+                                                        class="absolute inset-0 bg-emerald-600 d-flex align-items-center justify-center text-white font-black text-sm tracking-[0.3em]"
+                                                        style="z-index: 20;">
+                                                        Copiado!
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <style>
+                                                /* O "piscar" agora é apenas visual através da classe dinâmica do Alpine */
+                                                .transition-colors {
+                                                    transition: all 0.2s ease-in-out;
+                                                }
+                                            </style>
+
+
+                                            {{-- Botão Centralizado --}}
+                                            <div class="d-flex justify-content-center w-full mt-4">
+                                                <form action="/admin/finance/processor/pay-wallet/{{ $wallet->id }}" method="POST" class="w-full" style="max-width: 450px;">
+                                                    @csrf
+                                                    <input type="hidden" name="amount" value="{{ $wallet->period_credits_sum }}">
+                                                    
+                                                    <button type="submit" class="btn-confirmar-pix w-full !py-4 shadow-2xl !text-sm !font-[900]">
+                                                        Confirmar Pagamento Realizado
+                                                    </button>
+                                                </form>
+                                            </div>
+                                            
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
                             @endforeach
                         @empty
-                            <tr>
-                                <td colspan="4" class="py-24 text-center text-slate-300 font-bold uppercase text-xs tracking-widest">
-                                    Sem pagamentos pendentes
-                                </td>
-                            </tr>
+                            <tr><td colspan="4" class="py-20 text-center text-slate-300 font-bold uppercase text-[10px] tracking-[0.3em]">Nenhum pagamento pendente no período</td></tr>
                         @endforelse
                     </tbody>
                 </table>

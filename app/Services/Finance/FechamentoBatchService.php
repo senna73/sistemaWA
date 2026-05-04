@@ -99,10 +99,12 @@ class FechamentoBatchService
 
                 // Execução dos Pagamentos (ColaboratorWallets)
                 foreach ($dailyRates as $daily) {
-                    $this->collaboratorWalletService->credit(
+                    $wallet_history = $this->collaboratorWalletService->credit(
                         $daily->collaborator_id, 
                         $daily->pay_amount,
-                        "Pagamento Lote #{$batch->id}"
+                        "Pagamento Lote #{$batch->id}",
+                        [],
+                        $daily->start
                     );
                 }
 
