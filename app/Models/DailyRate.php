@@ -37,6 +37,12 @@ class DailyRate extends Model
         'user_id',
     ];
 
+    protected $casts = [
+        'start' => 'date',
+        'end' => 'date',
+
+    ];
+
     public static function getActive()
     {
         return self::query()->where('active', '=', true)->get();

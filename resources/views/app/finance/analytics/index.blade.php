@@ -1,43 +1,104 @@
 <x-app-layout>
-    <div class="py-12 bg-gray-50">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <div class="container-fluid py-5 bg-light min-vh-100">
+        <div class="container">
             
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-end mb-4 gap-3">
                 <div>
-                    <h2 class="text-2xl font-bold text-gray-800">Analytics & Insights</h2>
-                    <p class="text-sm text-gray-500">Acompanhando de {{ $start->format('d/m') }} até {{ $end->format('d/m') }}</p>
+                    <p class="text-primary fw-bold text-uppercase small mb-1" style="letter-spacing: 1px;">Performance</p>
+                    <h2 class="fw-black text-dark m-0">Analytics & Insights</h2>
                 </div>
 
-                <form action="{{ route('analytics.index') }}" method="GET" class="flex items-center gap-2 bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                    <input type="date" name="start_date" value="{{ $start->format('Y-m-d') }}" class="text-xs border-none focus:ring-0 rounded-lg">
-                    <span class="text-gray-300">|</span>
-                    <input type="date" name="end_date" value="{{ $end->format('Y-m-d') }}" class="text-xs border-none focus:ring-0 rounded-lg">
-                    <button type="submit" class="bg-indigo-600 p-2 rounded-lg text-white hover:bg-indigo-700 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                    </button>
-                </form>
-            </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="bg-white p-1 rounded-3 shadow-sm border d-flex">
+                        @foreach([1, 3, 6, 12] as $m)
+                            <a href="{{ route('analytics.index', ['months' => $m]) }}" 
+                               class="btn btn-sm {{ $months == $m ? 'btn-primary' : 'btn-light text-muted' }} fw-bold px-3 py-1 uppercase" 
+                               style="font-size: 10px;">
+                                {{ $m }}M
+                            </a>
+                        @endforeach
+                    </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Ticket Médio</p>
-                    <p class="text-2xl font-black text-gray-900">R$ {{ number_format($systemAverage, 2, ',', '.') }}</p>
-                </div>
-                <div class="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-                    <p class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Colaboradores Ativos</p>
-                    <p class="text-2xl font-black text-gray-900">{{ $activeCount }}</p>
-                </div>
-                <div class="bg-indigo-600 p-6 rounded-2xl shadow-lg text-white">
-                    <p class="text-xs font-bold uppercase tracking-wider opacity-80 mb-1">Top Performance</p>
-                    <p class="text-xl font-bold">{{ $topPerformer->name ?? 'Nenhum registro' }}</p>
-                    <p class="text-sm opacity-90">{{ $topPerformer->total_diarias ?? 0 }} diárias no período</p>
+                    <a href="{{ route('analytics.pdf', ['months' => $months]) }}" 
+                       class="btn btn-dark d-inline-flex align-items-center gap-2 px-3 py-2 rounded-3 shadow-sm border-0">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" class="text-info">
+                            <path d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        <span class="fw-bold" style="font-size: 12px;">Exportar PDF</span>
+                    </a>
                 </div>
             </div>
 
-            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-                @include('app.finance.analytics.collaborators')
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4 p-3">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 10px; letter-spacing: 1px;">Média Ativos</p>
+                                <h3 class="fw-black text-primary m-0">{{ number_format($mediaAtivos, 1) }}</h3>
+                            </div>
+                            <div class="bg-primary bg-opacity-10 p-3 rounded-4 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-primary">
+                                    <path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm rounded-4 p-3">
+                        <div class="card-body d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="text-muted fw-bold text-uppercase mb-1" style="font-size: 10px; letter-spacing: 1px;">Média Ociosos</p>
+                                <h3 class="fw-black text-danger m-0">{{ number_format($mediaOciosos, 1) }}</h3>
+                            </div>
+                            <div class="bg-danger bg-opacity-10 p-3 rounded-4 d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" class="text-danger">
+                                    <path d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"/>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
+
+            <div class="card border-0 shadow-sm rounded-4 p-4">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="fw-bold text-dark m-0">Atividade Diária</h5>
+                    <div class="d-flex gap-3">
+                        <div class="d-flex align-items-center gap-1">
+                            <div class="rounded-circle bg-primary" style="width: 8px; height: 8px;"></div>
+                            <small class="fw-bold text-muted text-uppercase" style="font-size: 9px;">Ativos</small>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <div class="rounded-circle bg-danger" style="width: 8px; height: 8px;"></div>
+                            <small class="fw-bold text-muted text-uppercase" style="font-size: 9px;">Inativos</small>
+                        </div>
+                    </div>
+                </div>
+                <div id="engagementChart"></div>
+            </div>
+
         </div>
     </div>
+
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var options = {
+                series: [{ name: 'Trabalhando', data: @json($chartActive) }, 
+                         { name: 'Ociosos', data: @json($chartInactive) }],
+                chart: { type: 'area', height: 350, toolbar: { show: false } },
+                colors: ['#0d6efd', '#dc3545'],
+                stroke: { curve: 'smooth', width: 3 },
+                xaxis: { categories: @json($chartLabels) },
+                dataLabels: { enabled: false },
+                tooltip: { theme: 'light' }
+            };
+            new ApexCharts(document.querySelector("#engagementChart"), options).render();
+        });
+    </script>
 </x-app-layout>

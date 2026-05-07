@@ -2,8 +2,10 @@
 
 namespace App\Services\Finance;
 
+use App\Models\Collaborator;
 use App\Models\CollaboratorWallet;
 use App\Models\CollaboratorWalletTransactions;
+use App\Models\DailyRate;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Exception;
@@ -73,5 +75,32 @@ class CollaboratorWalletService
                 'occurred_at'            => $date,
             ]);
         });
+    }
+
+    public function exportPdf(Request $request)
+    {
+        $months = (int) $request->get('months', 1);
+        $start = now()->subMonths($months)->startOfDay();
+        $end = now()->endOfDay();
+
+        $workedIds = DailyRate::whereBetween('start', [$start, $end])
+            ->distinct()
+            ->pluck('collaborator_id');
+
+        $nonWorkingCollaborators = Collaborator::whereNotIn('id', $workedIds)
+            ->where('active', true)
+            ->with(['dailyRates' => fn($q) => $q->latest('start')])
+            ->get();
+
+        $data = [
+            'title' => 'Relatório de Inatividade',
+            'period' => $months . ($months > 1 ? ' Meses' : ' Mês'),
+            'date' => now()->format('d/m/Y H:i'),
+            'collaborators' => $nonWorkingCollaborators
+        ];
+
+        $pdf = \PDF::loadView('app.finance.analytics.pdf_report', $data);
+
+        return $pdf->download("relatorio_inatividade_{$months}_meses.pdf");
     }
 }
