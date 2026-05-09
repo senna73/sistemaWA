@@ -83,7 +83,20 @@ class AnalyticsController extends Controller
             ->sortKeys();
         $mediaAtivos = count($chartActive) > 0 ? array_sum($chartActive) / count($chartActive) : 0;
         $mediaOciosos = count($chartInactive) > 0 ? array_sum($chartInactive) / count($chartInactive) : 0;
+        
 
+        $limitDate = now()->subDays(45);
+        $totalCollaborators = Collaborator::where('active', true)->count();
+
+        $recentWorkedIds = DailyRate::where('start', '>=', $limitDate)
+            ->distinct()
+            ->pluck('collaborator_id');
+
+        $countAtivos45 = $recentWorkedIds->count();
+        $percentAtivos45 = $totalCollaborators > 0 ? ($countAtivos45 / $totalCollaborators) * 100 : 0;
+
+        $countInativos45 = $totalCollaborators - $countAtivos45;
+        $percentInativos45 = $totalCollaborators > 0 ? ($countInativos45 / $totalCollaborators) * 100 : 0;
         return view('app.finance.analytics.index', compact(
             'chartLabels',
             'chartActive',
@@ -98,43 +111,74 @@ class AnalyticsController extends Controller
             'nonWorkingCollaborators',
             'distribution',
             'start',
-            'end'
+            'end',
+            'totalCollaborators',
+            'countAtivos45',
+            'percentAtivos45',
+            'countInativos45',
+            'percentInativos45'
         ));
     }
 
     public function exportPdf(Request $request)
     {
         ini_set('memory_limit', '512M');
-        $user = Auth::user();
-        $months = (int) $request->get('months', 1);
+        $type = $request->get('type', 'long_term');
+        $now = now();
         
-        $start = now()->subMonths($months)->startOfDay();
-        $end = now()->endOfDay();
+        $day15 = $now->copy()->subDays(15);
+        $day45 = $now->copy()->subDays(45);
+        $day135 = $now->copy()->subDays(135);
 
-        $workedIds = DailyRate::whereBetween('start', [$start, $end])
-            ->where('active', true)
-            ->distinct()
-            ->pluck('collaborator_id');
+        $query = Collaborator::where('active', true);
 
-        $nonWorking = Collaborator::whereNotIn('id', $workedIds)
-            ->where('active', true)
-            ->with(['dailyRates' => fn($q) => $q->latest('start')])
-            ->get()
-            ->map(function ($collab) {
-                $lastWork = $collab->dailyRates->first();
-                return [
-                    'name' => $collab->name,
-                    'last_date' => $lastWork ? Carbon::parse($lastWork->start)->format('d/m/Y') : 'Nunca',
-                    'days_count' => $lastWork ? Carbon::parse($lastWork->start)->diffInDays(now()) : 'Inatividade Total'
-                ];
+        if ($type === 'long_term') {
+            $title = "Inativos há mais de 45 dias";
+            $query->whereDoesntHave('dailyRates', function($q) use ($day45) {
+                $q->where('start', '>=', $day45);
             });
+        } 
+        elseif ($type === 'new_inactive') {
+            $title = "Novos Inativos (Cadastro < 135 dias)";
+            $query->whereDoesntHave('dailyRates', function($q) use ($day45) {
+                $q->where('start', '>=', $day45);
+            })->where('created_at', '>=', $day135);
+        } 
+        elseif ($type === 'warning') {
+            $title = "Alerta: Entre 15 e 45 dias sem atividade";
+            $query->whereHas('dailyRates', function($q) use ($day45) {
+                $q->where('start', '>=', $day45);
+            })->whereDoesntHave('dailyRates', function($q) use ($day15) {
+                $q->where('start', '>=', $day15);
+            });
+        }
+
+        $results = $query->with(['dailyRates' => fn($q) => $q->latest('start')])->get();
+
+        $data = $results->map(function ($collab) use ($now) {
+            $lastWork = $collab->dailyRates->first();
+            
+            $rawDays = $lastWork ? $lastWork->start->diffInDays($now) : -1;
+
+            return [
+                'name'          => $collab->name,
+                'created_at'    => $collab->created_at,
+                'created_at_fmt'=> $collab->created_at->format('d/m/Y'), 
+                'last_date'     => $lastWork ? $lastWork->start->format('d/m/Y') : 'Sem registro',
+                'days_count'    => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
+                'raw_days'      => $rawDays
+            ];
+        })
+        ->sortBy([
+            ['raw_days', 'asc'],
+            ['created_at', 'asc'],
+        ]);
 
         $html = View::make('app.finance.analytics.inactiveCollaborators', [
-            'title'  => "Relatório de Inatividade",
-            'data'   => $nonWorking,
-            'months' => $months,
-            'user'   => $user,
-            'date'   => now()->format('d/m/Y H:i')
+            'title' => $title,
+            'data'  => $data,
+            'date'  => $now->format('d/m/Y H:i'),
+            'user'  => Auth::user()
         ])->render();
 
         $dompdf = new \Dompdf\Dompdf();
