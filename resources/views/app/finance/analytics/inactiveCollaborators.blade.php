@@ -18,34 +18,29 @@
         <p>Relatório Gerencial | Gerado em: {{ $date }}</p>
     </div>
 
-    <table>
-        <thead>
-            <tr>
-                <th>Colaborador</th>
-                <th>Cadastrado em</th>
-                <th>Último Trabalho</th>
-                <th class="text-right">Dias sem atividade</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($data as $collab)
-                <tr>
-                    <td class="bold">{{ $collab['name'] }}</td>
-                    <td>{{ $collab['created_at_fmt'] }}</td>
-                    <td>{{ $collab['last_date'] }}</td>
-                    <td class="text-right">
-                        <span class="bold">{{ $collab['days_count'] }}</span> 
-                        {{ is_numeric($collab['days_count']) ? 'dias' : '' }}
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="4" style="text-align: center; padding: 30px;">
-                        Nenhum colaborador encontrado para os critérios selecionados.
-                    </td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
+<table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+    <thead>
+        <tr style="background-color: #f2f2f2;">
+            <th style="padding: 8px; border: 1px solid #ddd;">Colaborador</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">WhatsApp/Celular</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Cidade(s)</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Cadastro</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Última Atividade</th>
+            <th style="padding: 8px; border: 1px solid #ddd;">Dias Inativo</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach($data as $item)
+        <tr>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ $item['name'] }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ $item['mobile'] }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ $item['city'] }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ $item['created_at_fmt'] }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd;">{{ $item['last_date'] }}</td>
+            <td style="padding: 8px; border: 1px solid #ddd; font-weight: bold;">{{ $item['days_count'] }}</td>
+        </tr>
+        @endforeach
+    </tbody>
+</table>
 </body>
 </html>

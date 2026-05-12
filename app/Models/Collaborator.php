@@ -20,7 +20,8 @@ class Collaborator extends Model
         'is_supervisor',
         'is_extra',
         'city',
-        'intermittent_contract'
+        'intermittent_contract',
+        'mobile',
     ];
 
     public static function getActive()
@@ -38,5 +39,9 @@ class Collaborator extends Model
     public function dailyRates()
     {
         return $this->hasMany(DailyRate::class, 'collaborator_id'); 
+    }
+    public function cities()
+    {
+        return $this->belongsToMany(City::class, 'city_has_collaborator');
     }
 }

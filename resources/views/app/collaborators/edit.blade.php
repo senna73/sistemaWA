@@ -11,6 +11,10 @@
                         <input type="text" class="form-control" id="basic-default-fullname" name="name" placeholder="João Doe" value="{{ $collaborator?->name ?? ''}}" />
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="mobile">Celular</label>
+                        <input type="text" class="form-control mobile" id="mobile" name="mobile" placeholder="(00) 00000-0000" value="{{ $collaborator?->mobile ?? ''}}" />
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label" for="basic-default-fullname">Documento</label>
                         <input type="text" class="form-control cpf" id="basic-default-fullname" name="document" placeholder="000.000.000-00" value="{{ $collaborator?->document ?? ''}}" />
                     </div>
@@ -68,6 +72,7 @@
                         <textarea id="basic-default-message" class="form-control" placeholder="Alguma observação?" name="observation">{!! $collaborator?->observation ?? '' !!}</textarea>
                     </div>
                 </form>
+
             </div>
             <div class="card-footer">
                 @if ($collaborator?->id ?? false)
@@ -159,5 +164,19 @@
             clearIncomplete: true 
         });
         cpfMask.mask('.cpf');
+    });
+
+    $(document).ready(function () {
+    let cpfMask = new Inputmask('999.999.999-99', { 
+        placeholder: ' ', 
+        clearIncomplete: true 
+    });
+    cpfMask.mask('.cpf');
+
+    let mobileMask = new Inputmask('(99) 99999-9999', { 
+        placeholder: ' ', 
+        clearIncomplete: true 
+    });
+    mobileMask.mask('.mobile');
     });
 </script>

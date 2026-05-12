@@ -97,6 +97,7 @@ class CollaboratorsController extends Controller
                 'is_extra' => $request->is_extra == 'on'? 1 :  0,
                 'intermittent_contract' => $request->intermittent_contract == 'on'? 1 : 0,
                 'city' => $request->city,
+                'mobile' => $request->mobile,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
@@ -197,6 +198,8 @@ class CollaboratorsController extends Controller
                 'is_extra' => $request->is_extra == 'on'? 1 :  0,
                 'intermittent_contract' => $request->intermittent_contract == 'on'? 1 : 0,
                 'city' => $request->city,
+                'mobile' => $request->mobile,
+
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
