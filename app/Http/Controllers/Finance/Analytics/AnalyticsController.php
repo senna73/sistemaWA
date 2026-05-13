@@ -52,10 +52,11 @@ class AnalyticsController extends Controller
         
         // Se for menor que 0, não filtra por data de início (All Time)
         if ($months <= 0) {
-            $startDate = \App\Models\DailyRate::min('start') ?? now()->subMonth();
+            $startDate = DailyRate::min('start') ?? now()->subMonth();
         } else {
             $startDate = now()->subMonths($months)->startOfDay();
-        }        
+        }
+        
         $startDateChart = now()->subMonths($months)->startOfDay();
         $chartLabels = []; $chartActive = []; $chartInactive = [];
         $days = $startDateChart->diffInDays(now()->startOfDay()); 
