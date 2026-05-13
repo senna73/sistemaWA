@@ -38,9 +38,8 @@ class DailyRate extends Model
     ];
 
     protected $casts = [
-        'start' => 'date',
-        'end' => 'date',
-
+        'start' => 'datetime',
+        'end'   => 'datetime',
     ];
 
     public static function getActive()
