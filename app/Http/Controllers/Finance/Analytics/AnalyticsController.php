@@ -99,20 +99,22 @@ class AnalyticsController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $headerCityNames = !empty($selectedCities) 
-            ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
-            : ['Todas as cidades'];
+
             
         ini_set('memory_limit', '512M');
         $type = $request->get('type', 'long_term');
         $selectedCities = $request->get('city_ids', []);
         $now = now();
-        
+        $headerCityNames = !empty($selectedCities) 
+            ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
+            : ['Todas as cidades'];
+            
         $day15 = $now->copy()->subDays(15);
         $day45 = $now->copy()->subDays(45);
         $day135 = $now->copy()->subDays(135);
 
         $query = Collaborator::where('active', true);
+
         $this->applyCityFilter($query, $selectedCities);
 
         if ($type === 'long_term') {
