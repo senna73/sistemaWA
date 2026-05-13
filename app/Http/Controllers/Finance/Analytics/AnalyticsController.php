@@ -97,18 +97,21 @@ class AnalyticsController extends Controller
         ));
     }
 
+
     public function exportPdf(Request $request)
     {
-
-            
         ini_set('memory_limit', '512M');
+        
         $type = $request->get('type', 'long_term');
         $selectedCities = $request->get('city_ids', []);
         $now = now();
+        
         $headerCityNames = !empty($selectedCities) 
             ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
             : ['Todas as cidades'];
-            
+
+        if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
+
         $day15 = $now->copy()->subDays(15);
         $day45 = $now->copy()->subDays(45);
         $day135 = $now->copy()->subDays(135);
@@ -160,7 +163,10 @@ class AnalyticsController extends Controller
             'date'       => $now->format('d/m/Y H:i'),
             'user'       => Auth::user()
         ])->render();
-
+        if (ob_get_length()) ob_end_clean();
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
         $dompdf = new \Dompdf\Dompdf();
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
