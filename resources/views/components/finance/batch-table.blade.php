@@ -7,6 +7,7 @@
                 <th style="padding: 16px 24px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Identificação</th>
                 <th style="padding: 16px 24px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px;">Data de Criação</th>
                 <th style="padding: 16px 24px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; text-align: right;">Valor Total</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nº Nota</th>
                 <th style="padding: 16px 24px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">Status</th>
                 <th style="padding: 16px 24px; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; text-align: right;">Ações</th>
             </tr>
@@ -58,7 +59,16 @@
                             @endif
                         </div>
                     </td>
-                    
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        @if($batch->invoice_number)
+                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                                <i class='bx bx-receipt text-sm'></i>
+                                {{ $batch->invoice_number }}
+                            </span>
+                        @else
+                            <span class="text-gray-300 text-xs">---</span>
+                        @endif
+                    </td>
                     {{-- Status --}}
                     <td style="padding: 16px 24px; text-align: center;">
                         <x-finance.batch-status-badge :status="$batch->status" />

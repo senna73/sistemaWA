@@ -25,13 +25,37 @@
 <div style="width: 100%; font-family: sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 20px; box-sizing: border-box;">    
     <div style="width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">        
         <div style="padding: 20px; border-bottom: 2px dashed #eee;">
-            <h5 style="margin: 0; color: #333; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-                Fechamento 
-                <span style="background-color: #2c3e50; color: #fff; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                    {{$company->name}}
-                </span>
-            </h5>
-            <small style="color: #888;">Período: {{ \Carbon\Carbon::parse($batch->period_start)->format('d/m') }} a {{ \Carbon\Carbon::parse($batch->period_end)->format('d/m/y') }}</small>
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                <div>
+                    <h5 style="margin: 0; color: #333; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                        Fechamento 
+                        <span style="background-color: #2c3e50; color: #fff; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                            {{$company->name}}
+                        </span>
+                    </h5>
+                    <small style="color: #888;">Período: {{ \Carbon\Carbon::parse($batch->period_start)->format('d/m') }} a {{ \Carbon\Carbon::parse($batch->period_end)->format('d/m/y') }}</small>
+                </div>
+
+                {{-- Exibição do Número da Nota --}}
+                @if($batch->invoice_number)
+                    <div style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 6px;">
+                        <i class='bx bx-receipt' style="color: #475569; font-size: 1.1rem;"></i>
+                        <span style="color: #475569; font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
+                            Nota: {{ $batch->invoice_number }}
+                        </span>
+                    </div>
+                @endif
+            </div>
+
+            {{-- Exibição da Descrição --}}
+            @if($batch->description)
+                <div style="margin-top: 15px; padding: 12px; background: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 4px;">
+                    <p style="margin: 0; font-size: 0.85rem; color: #64748b; line-height: 1.5;">
+                        <strong style="color: #475569; text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Descrição do Lote:</strong>
+                        {{ $batch->description }}
+                    </p>
+                </div>
+            @endif
         </div>
 
         <div style="padding: 20px;">

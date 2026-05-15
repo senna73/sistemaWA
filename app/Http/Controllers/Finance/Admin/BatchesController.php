@@ -51,7 +51,6 @@ class BatchesController extends Controller
     // Tela de criação de novo lote
     public function create()
     {
-
         return view('app.finance.admin.batches.create');
     }
 
@@ -118,6 +117,10 @@ class BatchesController extends Controller
             'total_amount' => 'required|numeric|min:0',
             'status'       => 'nullable|in:pending,processing,completed,canceled',
             'metadata'     => 'nullable|array',
+
+            'invoice_number' => 'nullable|string|max:255',
+            'description'    => 'nullable|string',
+
             'period_start' => [
                 'required',
                 'date',

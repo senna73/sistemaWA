@@ -28,6 +28,8 @@ class FinancialBatches extends Model
         'period_end',
         'status',
         'metadata',
+        'invoice_number',
+        'description',
     ];
 
     protected $casts = [

@@ -3,11 +3,10 @@
         Novo Lote de Pagamento
     </h2>
 </div>
-
 <form id="financial-form" action="{{ route('admin.batches.store') }}" method="POST" class="row g-3 items-end">
     @csrf
-    {{-- Estabelecimento --}}
-    <div class="col-md-3">
+
+    <div class="col-md-8">
         <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Estabelecimento</label>
         <select name="company_id" id="select-digitavel" class="form-select select2" required>
             <option value=""></option>
@@ -18,30 +17,37 @@
             @endforeach
         </select>
     </div>
-
-    {{-- Data Inicial --}}
-    <div class="col-md-2">
-        <label class="form-label ...">Inicio do processamento</label>
-        <input type="date" name="period_start" class="form-control" required>
-    </div>
-
-    {{-- Data Final --}}
-    <div class="col-md-2">
-        <label class="form-label ...">Fim do processamento</label>
-        <input type="date" name="period_end" class="form-control" required>
-    </div>
-
     {{-- Valor --}}
-    <div class="col-md-3">
+    <div class="col-md-4">
         <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Valor do Repasse</label>
         <div class="input-group input-group-merge">
             <span class="input-group-text">R$</span>
             <input type="text" name="total_amount" id="valor-mask" class="form-control" placeholder="0,00" required>
         </div>
     </div>
-    
+    {{-- Data Ínicio --}}
+    <div class="col-md-6">
+        <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Início do processamento</label>
+        <input type="date" name="period_start" class="form-control" required>
+    </div>
+    {{-- Data Final --}}
+    <div class="col-md-6">
+        <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Fim do processamento</label>
+        <input type="date" name="period_end" class="form-control" required>
+    </div>
+    {{-- Nº da Nota --}}
+    <div class="col-md-12">
+        <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Nº da Nota</label>
+        <input type="text" name="invoice_number" id="invoice-mask" class="form-control" placeholder="000 000 000">
+    </div>
+    {{-- Descrição --}}
+    <div class="col-md-12">
+        <label class="form-label text-uppercase fw-bold text-muted" style="font-size: 0.7rem;">Descrição / Observações</label>
+        <textarea name="description" class="form-control" rows="2" placeholder="Informações adicionais sobre o lote..."></textarea>
+    </div>
+
     {{-- Botão --}}
-    <div class="col-md-2">
+    <div class="col-md-12">
         <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2">
             <i class='bx bx-plus-circle'></i> Adicionar
         </button>
@@ -135,4 +141,11 @@
             });
         });
     });
+    var invoiceInput = document.getElementById("invoice-mask");
+    Inputmask({
+        mask: "999.999.999.999",
+        greedy: false,
+        placeholder: "",
+        removeMaskOnSubmit: true
+    }).mask(invoiceInput);
 </script>
