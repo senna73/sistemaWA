@@ -122,14 +122,22 @@ class AnalyticsController extends Controller
 
         if ($type === 'long_term') {
             $title = "Inativos há mais de 45 dias";
-            $query->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day45));
+            
+            $query->where('created_at', '<=', $day45)
+                ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day45));
+
         } elseif ($type === 'new_inactive') {
             $title = "Novos Inativos (Cadastro < 135 dias)";
-            $query->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day45))
-                ->where('created_at', '>=', $day135);
+            
+            $query->where('created_at', '>=', $day135)
+                ->where('created_at', '<=', $day45) 
+                ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day45));
+
         } elseif ($type === 'warning') {
             $title = "Alerta: Entre 15 e 45 dias sem atividade";
-            $query->whereHas('dailyRates', fn($q) => $q->where('start', '>=', $day45))
+            
+            $query->where('created_at', '<=', $day15) 
+                ->whereHas('dailyRates', fn($q) => $q->where('start', '>=', $day45))
                 ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day15));
         }
 
@@ -154,7 +162,10 @@ class AnalyticsController extends Controller
                     'days_count'     => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
                     'raw_days'       => $rawDays
                 ];
-            })->sortBy([['raw_days', 'asc'], ['created_at', 'asc']]);
+            })->sortBy([
+                    ['raw_days', 'asc'], 
+                    ['created_at_raw', 'asc']
+                ]);
 
         $html = View::make('app.finance.analytics.inactiveCollaborators', [
             'title'      => $title,
