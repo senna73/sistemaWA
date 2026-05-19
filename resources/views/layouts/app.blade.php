@@ -1,4 +1,28 @@
 <!DOCTYPE html>
+
+<style>
+  #layout-menu {
+    height: 100vh !important;
+    position: fixed;
+    position: -webkit-sticky;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    overflow-y: auto !important;
+  }
+
+  #layout-menu::-webkit-scrollbar {
+    width: 5px;
+  }
+  #layout-menu::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+  }
+  #layout-menu::-webkit-scrollbar-track {
+    background: transparent;
+  }
+</style>
+
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
   <head>
     <meta charset="utf-8">

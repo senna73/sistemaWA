@@ -113,24 +113,36 @@
                 <div class="col-12">
                     <div class="card border-0 bg-dark rounded-4 p-4 shadow-lg">
                         <div class="row align-items-center">
-                            <div class="col-md-4 mb-3 mb-md-0">
+                            <div class="col-md-3 mb-3 mb-md-0">
                                 <h5 class="text-white fw-bold m-0">Relatórios de Gestão</h5>
-                                <p class="text-white-50 small m-0">Os PDFs respeitarão os filtros de cidade aplicados acima.</p>
+                                <p class="text-white-50 small m-0">Os PDFs respeitarão os filtros de cidade e período aplicados.</p>
                             </div>
-                            <div class="col-md-8">
-                                <div class="d-grid d-md-flex justify-content-md-end gap-3">
+                            <div class="col-md-9">
+                                <div class="d-grid d-md-flex justify-content-md-end gap-2 flex-wrap">
                                     @php $currentFilters = request()->all(); @endphp
                                     
+                                    {{-- Novo botão para Exportar os Colaboradores ATIVOS --}}
+                                    <a href="{{ route('analytics.ativos.pdf', $currentFilters) }}" 
+                                       class="btn btn-success px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2 border-0 shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-check" viewBox="0 0 16 16">
+                                            <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"/>
+                                            <path d="M10.854 7.854a.5.5 0 0 0-.708-.708L7.5 9.793 6.354 8.646a.5.5 0 1 0-.708.708l1.5 1.5a.5.5 0 0 0 .708 0z"/>
+                                        </svg>
+                                        Ativos no Período (Volume de Diárias)
+                                    </a>
+
+                                    <div class="vr bg-secondary d-none d-md-block mx-1"></div>
+
                                     <a href="{{ route('analytics.pdf', array_merge($currentFilters, ['type' => 'long_term'])) }}" 
-                                       class="btn btn-outline-light px-4 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
+                                       class="btn btn-outline-light px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
                                         Inativos (+45 dias)
                                     </a>
                                     <a href="{{ route('analytics.pdf', array_merge($currentFilters, ['type' => 'new_inactive'])) }}" 
-                                       class="btn btn-outline-light px-4 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
+                                       class="btn btn-outline-light px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
                                         Novos Inativos
                                     </a>
                                     <a href="{{ route('analytics.pdf', array_merge($currentFilters, ['type' => 'warning'])) }}" 
-                                       class="btn btn-outline-light px-4 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
+                                       class="btn btn-outline-light px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
                                         Alerta (15-45 dias)
                                     </a>
                                 </div>

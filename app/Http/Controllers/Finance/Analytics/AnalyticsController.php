@@ -185,4 +185,68 @@ class AnalyticsController extends Controller
 
         return $dompdf->stream("relatorio_inativos.pdf", ['Attachment' => false]);
     }
+
+public function exportAtivosPdf(Request $request)
+    {
+        ini_set('memory_limit', '512M');
+        
+        $selectedCities = $request->get('city_ids', []);
+        $months = (int) $request->get('months', 1);
+        $now = now();
+
+        if ($months <= 0) {
+            $startDate = DailyRate::min('start') ?? now()->subMonth();
+            $title = "Colaboradores Ativos - Todo o Período";
+        } else {
+            $startDate = now()->subMonths($months)->startOfDay();
+            $title = "Colaboradores Ativos - Últimos " . ($months == 1 ? "30 dias" : "{$months} meses");
+        }
+
+        $headerCityNames = !empty($selectedCities) 
+            ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
+            : ['Todas as cidades'];
+        if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
+
+        $query = Collaborator::where('active', true);
+        $this->applyCityFilter($query, $selectedCities);
+
+        $query->whereHas('dailyRates', function($q) use ($startDate) {
+            $q->where('start', '>=', $startDate);
+        });
+
+        $results = $query->with(['cities'])
+            ->withCount(['dailyRates' => function($q) use ($startDate) {
+                $q->where('start', '>=', $startDate);
+            }])
+            ->get();
+
+        $data = $results->map(function ($collab) {
+            return [
+                'name'              => $collab->name,
+                'mobile'            => $collab->mobile ?: 'Sem número cadastrado',
+                'city'              => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
+                'created_at_fmt'    => $collab->created_at ? $collab->created_at->format('d/m/Y') : 'N/D', 
+                'daily_rates_count' => $collab->daily_rates_count
+            ];
+        })->sortByDesc('daily_rates_count');
+
+        $html = View::make('app.finance.analytics.activeCollaborators', [
+            'title'      => $title,
+            'filterCity' => implode(', ', $headerCityNames),
+            'data'       => $data,
+            'date'       => $now->format('d/m/Y H:i'),
+            'user'       => Auth::user()
+        ])->render();
+
+        while (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->stream("relatorio_colaboradores_ativos.pdf", ['Attachment' => false]);
+    }
 }

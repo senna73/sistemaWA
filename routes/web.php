@@ -160,4 +160,5 @@ Route::middleware(['auth', 'permission:Acesso aos dados de diárias'])->group(fu
 
 
 Route::get('/admin/finance/analytics/pdf', [AnalyticsController::class, 'exportPdf'])->name('analytics.pdf');
+Route::get('/admin/finance/analytics/pdf/ativos', [AnalyticsController::class, 'exportAtivosPdf'])->name('analytics.ativos.pdf');
 require __DIR__.'/auth.php';
