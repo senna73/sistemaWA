@@ -3,11 +3,6 @@
 <style>
   #layout-menu {
     height: 100vh !important;
-    position: fixed;
-    position: -webkit-sticky;
-    top: 0;
-    bottom: 0;
-    left: 0;
     overflow-y: auto !important;
   }
 
@@ -75,7 +70,7 @@
 
   <body>
     <!-- Layout wrapper -->
-    <div class="layout-wrapper layout-content-navbar">
+  <div class="layout-wrapper layout-content-navbar layout-menu-fixed">
       <div class="layout-container">
         <!-- Menu -->
 
@@ -274,7 +269,9 @@
           <!-- Content wrapper -->
           <div class="content-wrapper">
             <!-- Content -->
-                {{$slot}}
+            <div class="container-xxl flex-grow-1 container-p-y">
+              {{$slot}}
+            </div>
             <!-- / Content -->
 
             <!-- Footer -->
