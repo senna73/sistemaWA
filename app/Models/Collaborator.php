@@ -22,6 +22,7 @@ class Collaborator extends Model
         'city',
         'intermittent_contract',
         'mobile',
+        'examined_medical_clinic_id',
     ];
 
     public static function getActive()

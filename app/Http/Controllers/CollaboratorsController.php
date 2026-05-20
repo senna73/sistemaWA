@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\City;
 use App\Models\CityHasCollaborator;
 use App\Models\Collaborator;
+use App\Models\MedicalClinic;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -31,7 +32,12 @@ class CollaboratorsController extends Controller
     public function create()
     {
         $cities = City::all();
-        return View('app.collaborators.edit', ['cities' => $cities]);
+        $available_clinics = MedicalClinic::getActive();
+
+        return View('app.collaborators.edit', [
+                'cities'            => $cities,
+                'available_clinics' => $available_clinics,
+            ]);
     }
 
     public function table(Request $request){
@@ -72,6 +78,8 @@ class CollaboratorsController extends Controller
                 'name' => ['required', 'string', 'max:255'],
                 'document' => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
                 'pix_key' => ['required'],
+                'medical_clinic_id' => ['nullable', 'exists:medical_clinics,id'],
+
             ], [
                 'name.required' => 'O campo nome é obrigatório.',
                 'name.string' => 'O nome deve ser um texto válido.',
@@ -79,6 +87,7 @@ class CollaboratorsController extends Controller
                 'document.required' => 'CPF é obrigatório.',
                 'document.regex' => 'O CPF deve estar no formato correto (000.000.000-00).',
                 'pix_key.required' => 'O campo Chave Pix é obrigatório.',
+                'medical_clinic_id.exists' => 'A clínica médica selecionada é inválida.',
             ]);
 
             if ($validator->fails()) {
@@ -98,6 +107,7 @@ class CollaboratorsController extends Controller
                 'intermittent_contract' => $request->intermittent_contract == 'on'? 1 : 0,
                 'city' => $request->city,
                 'mobile' => $request->mobile,
+                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
@@ -140,11 +150,13 @@ class CollaboratorsController extends Controller
             ->toArray();
         $cities = City::all();
 
+        $available_clinics = MedicalClinic::getActive();
 
         return view('app.collaborators.edit', [
-            'collaborator' => $collaborator,
-            'cities' => $cities,
-            'selectedCities' => $selectedCities
+            'collaborator'      => $collaborator,
+            'cities'            => $cities,
+            'selectedCities'    => $selectedCities,
+            'available_clinics' => $available_clinics,
         ]);
     }
 
@@ -172,6 +184,7 @@ class CollaboratorsController extends Controller
                 'name' => ['required', 'string', 'max:255'],
                 'document' => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
                 'pix_key' => ['required'],
+                'medical_clinic_id' => ['nullable', 'exists:medical_clinics,id'],
             ], [
                 'name.required' => 'O campo nome é obrigatório.',
                 'name.string' => 'O nome deve ser um texto válido.',
@@ -179,6 +192,7 @@ class CollaboratorsController extends Controller
                 'document.required' => 'CPF é obrigatório.',
                 'document.regex' => 'O CPF deve estar no formato correto (000.000.000-00).',
                 'pix_key.required' => 'O campo Chave Pix é obrigatório.',
+                'medical_clinic_id.exists' => 'A clínica médica selecionada é inválida.',
             ]);
 
             if ($validator->fails()) {
@@ -193,13 +207,13 @@ class CollaboratorsController extends Controller
                 'document' => Number::onlyNumber($request->document),
                 'pix_key' => $request->pix_key,
                 'observation' => $request->observation,
-                'is_leader' => $request->is_leader == 'on'? 1 :  0,
-                'is_supervisor' => $request->is_supervisor == 'on'? 1 :  0,
-                'is_extra' => $request->is_extra == 'on'? 1 :  0,
-                'intermittent_contract' => $request->intermittent_contract == 'on'? 1 : 0,
+                'is_leader' => $request->has('is_leader') ? 1 : 0,
+                'is_supervisor' => $request->has('is_supervisor') ? 1 : 0,
+                'is_extra' => $request->has('is_extra') ? 1 : 0,
+                'intermittent_contract' => $request->has('intermittent_contract') ? 1 : 0,
                 'city' => $request->city,
                 'mobile' => $request->mobile,
-
+                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
@@ -207,9 +221,9 @@ class CollaboratorsController extends Controller
 
             return response()->json([
                 'title' => 'Sucesso!',
-                'message' => 'Colaborador cadastrado com sucesso!',
+                'message' => 'Colaborador atualizado com sucesso!',
                 'type' => 'success'
-            ], 201);
+            ], 200);
 
         } catch(Exception $exception) {
 
@@ -259,4 +273,6 @@ class CollaboratorsController extends Controller
         $collaborator = Collaborator::query()->where('id', '=', $id)->first();
         return $collaborator?->pix_key ?? "";
     }
+
+
 }

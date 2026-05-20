@@ -46,7 +46,18 @@
 
                         
                     </div>
-                    
+                    <div class="mb-3 mt-3">
+                    <label class="form-label" for="medical_clinic_id">Clínica Médica</label>
+                    <select name="medical_clinic_id" id="medical_clinic_id" class="form-control">
+                        <option value="">Selecione uma clínica (Opcional)</option>
+                        @foreach($available_clinics as $clinic)
+                            <option value="{{ $clinic->id }}"
+                                {{ (isset($collaborator) && $collaborator->examined_medical_clinic_id == $clinic->id) ? 'selected' : '' }}>
+                                {{ $clinic->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
                     <div class="mb-3">
                         <label class="form-label" for="basic-default-fullname">Chave Pix</label>
                         <input type="text" class="form-control" id="pix_key" name="pix_key" value="{{ $collaborator?->pix_key ?? ''}}" />
