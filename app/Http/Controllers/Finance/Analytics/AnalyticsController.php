@@ -146,7 +146,7 @@ class AnalyticsController extends Controller
         $day15 = $now->copy()->subDays(15);
         $day45 = $now->copy()->subDays(45);
         $day135 = $now->copy()->subDays(135);
-
+        
         $query = Collaborator::where('active', true);
 
         $this->applyCityFilter($query, $selectedCities);
@@ -218,7 +218,7 @@ class AnalyticsController extends Controller
         return $dompdf->stream("relatorio_inativos.pdf", ['Attachment' => false]);
     }
 
-public function exportAtivosPdf(Request $request)
+    public function exportAtivosPdf(Request $request)
     {
         ini_set('memory_limit', '512M');
         
