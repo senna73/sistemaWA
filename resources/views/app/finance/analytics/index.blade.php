@@ -6,19 +6,32 @@
     <div class="container-fluid py-5 bg-light min-vh-100">
         <div class="container">
             
-            <!-- Header -->
             <div class="row align-items-end mb-5">
-                <div class="col-md-6">
+                <div class="col-md-4">
                     <p class="text-primary fw-bold text-uppercase small mb-1" style="letter-spacing: 1px;">Financeiro</p>
                     <h2 class="fw-black text-dark m-0">Performance & Analytics</h2>
                 </div>
                 
-                <div class="col-md-6 mt-4 mt-md-0">
-                    <form id="filterForm" method="GET" action="{{ route('analytics.index') }}" class="row g-2 justify-content-md-end">
+                <div class="col-md-8 mt-4 mt-md-0">
+                    <form id="filterForm" method="GET" action="{{ route('analytics.index') }}" class="row g-2 align-items-end justify-content-md-end">
                         <input type="hidden" name="months" value="{{ request('months', 1) }}">
                         
-                        <div class="col-sm-8">
-                            <label class="small fw-bold text-muted mb-1">Filtrar por Unidades (Cidades)</label>
+                        <div class="col-md-5 col-sm-6">
+                            <label class="small fw-bold text-muted mb-1">Filtrar por Clínicas</label>
+                            <select name="medical_clinics[]" id="medicalClinicSelected" class="form-select select2" multiple>
+                                <option value="null" {{ in_array('null', (array)request('medical_clinics')) ? 'selected' : '' }}>
+                                    (Sem clínica registrada)
+                                </option>
+                                @foreach($clinics as $clinic)
+                                    <option value="{{ $clinic->id }}" {{ in_array($clinic->id, (array)request('medical_clinics')) ? 'selected' : '' }}>
+                                        {{ $clinic->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-5 col-sm-6">
+                            <label class="small fw-bold text-muted mb-1">Filtrar por Cidades</label>
                             <select name="city_ids[]" id="citySelect" class="form-select select2" multiple>
                                 <option value="null" {{ in_array('null', (array)request('city_ids')) ? 'selected' : '' }}>
                                     (Sem cidade registrada)
@@ -30,22 +43,19 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="col-sm-4 d-grid">
-                            <label class="d-none d-sm-block mb-1">&nbsp;</label>
-                            <button type="submit" class="btn btn-primary fw-bold shadow-sm">
-                                Aplicar Filtros
+
+                        <div class="col-md-2 col-sm-12 d-grid">
+                            <button type="submit" class="btn btn-primary fw-bold shadow-sm py-2">
+                                Filtrar
                             </button>
                         </div>
                     </form>
                 </div>
             </div>
 
-            <!-- Seção do Gráfico -->
             <div class="card border-0 shadow-sm rounded-4 p-4 mb-4 bg-white">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
-
                     <div class="bg-light p-1 rounded-3 d-inline-flex border">
-                        {{-- Botão All Time --}}
                         <a href="{{ route('analytics.index', array_merge(request()->query(), ['months' => -1])) }}" 
                         class="btn btn-sm {{ (request('months', 1) == -1) ? 'btn-white shadow-sm fw-bold' : 'text-muted' }} px-3 py-1 border-0" 
                         style="font-size: 11px; min-width: 45px;">
@@ -64,7 +74,6 @@
 
                 <div id="engagementChart"></div>
                 
-                <!-- Legenda do Gráfico -->
                 <div class="d-flex justify-content-center gap-4 mt-3">
                     <div class="d-flex align-items-center gap-2">
                         <div class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></div>
@@ -77,7 +86,6 @@
                 </div>
             </div>
 
-            <!-- Cards de Métricas -->
             <div class="row g-4 mb-5">
                 <div class="col-md-4">
                     <div class="card border-0 shadow-sm rounded-4 h-100 bg-white">
@@ -108,20 +116,18 @@
                 </div>
             </div>
 
-            <!-- Seção de Exportação -->
             <div class="row">
                 <div class="col-12">
                     <div class="card border-0 bg-dark rounded-4 p-4 shadow-lg">
                         <div class="row align-items-center">
                             <div class="col-md-3 mb-3 mb-md-0">
                                 <h5 class="text-white fw-bold m-0">Relatórios de Gestão</h5>
-                                <p class="text-white-50 small m-0">Os PDFs respeitarão os filtros de cidade e período aplicados.</p>
+                                <p class="text-white-50 small m-0">Os PDFs respeitarão os filtros de cidade, clínica e período aplicados.</p>
                             </div>
                             <div class="col-md-9">
                                 <div class="d-grid d-md-flex justify-content-md-end gap-2 flex-wrap">
                                     @php $currentFilters = request()->all(); @endphp
                                     
-                                    {{-- Novo botão para Exportar os Colaboradores ATIVOS --}}
                                     <a href="{{ route('analytics.ativos.pdf', $currentFilters) }}" 
                                        class="btn btn-success px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2 border-0 shadow-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-check" viewBox="0 0 16 16">
@@ -161,17 +167,23 @@
         .select2-container--bootstrap-5 .select2-selection { border-radius: 0.5rem; padding: 0.25rem; }
     </style>
 
-    <!-- Scripts: jQuery + Select2 + ApexCharts -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 
     <script>
         $(document).ready(function() {
-            // Inicializa Select2
+            // Inicializa Select2 para Cidades
             $('#citySelect').select2({
                 theme: 'bootstrap-5',
                 placeholder: 'Selecione as cidades',
+                allowClear: true
+            });
+
+            // Inicializa Select2 para Clínicas
+            $('#medicalClinicSelected').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Selecione as clínicas',
                 allowClear: true
             });
 

@@ -42,9 +42,6 @@
                                 {{ isset($collaborator) && $collaborator?->is_extra == 1 ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_extra">Recebe Valor Extra</label>
                         </div>
-
-
-                        
                     </div>
                     <div class="mb-3 mt-3">
                     <label class="form-label" for="medical_clinic_id">Clínica Médica</label>

@@ -45,4 +45,9 @@ class Collaborator extends Model
     {
         return $this->belongsToMany(City::class, 'city_has_collaborator');
     }
+
+    public function clinics()
+    {
+        return $this->hasOne(MedicalClinic::class);
+    }
 }

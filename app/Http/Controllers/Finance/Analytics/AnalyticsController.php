@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Models\Collaborator;
 use App\Models\DailyRate;
 use App\Models\City;
+use App\Models\MedicalClinic;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Faker\Provider\Medical;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 
@@ -34,10 +36,29 @@ class AnalyticsController extends Controller
         return $query;
     }
 
+    private function applyClinicFilter($query, $selectedClinics)
+    {
+        if (!empty($selectedClinics)) {
+            $query->where(function($q) use ($selectedClinics) {
+                $clinicIds = array_filter($selectedClinics, fn($v) => $v !== 'null');
+                
+                if (!empty($clinicIds)) {
+                    $q->whereIn('collaborators.examined_medical_clinic_id', $clinicIds); 
+                }
+
+                if (in_array('null', $selectedClinics)) {
+                    $q->orWhereNull('collaborators.examined_medical_clinic_id');
+                }
+            });
+        }
+        return $query;
+    }
+
     public function index(Request $request)
     {
         $cities = City::where('active', true)->orderBy('name')->get();
         $selectedCities = $request->get('city_ids', []);
+        $selectedClinics = $request->get('medical_clinics', []);
 
         $campoData = 'start'; 
         $campoValor = 'pay_amount';
@@ -46,6 +67,7 @@ class AnalyticsController extends Controller
 
         $baseQuery = Collaborator::where('active', true);
         $this->applyCityFilter($baseQuery, $selectedCities);
+        $this->applyClinicFilter($baseQuery, $selectedClinics);
         $totalCollaborators = $baseQuery->count();
 
         $months = (int) $request->get('months', 1);
@@ -66,9 +88,10 @@ class AnalyticsController extends Controller
             if ($currentDay->isFuture()) continue;
 
             $dayActive = DailyRate::whereDate('start', $currentDay->toDateString())
-                ->whereHas('collaborator', function($q) use ($selectedCities) {
+                ->whereHas('collaborator', function($q) use ($selectedCities, $selectedClinics) {
                     $q->where('active', true);
                     $this->applyCityFilter($q, $selectedCities);
+                    $this->applyClinicFilter($q, $selectedClinics);
                 })
                 ->distinct('collaborator_id')
                 ->count('collaborator_id');
@@ -90,11 +113,12 @@ class AnalyticsController extends Controller
         $countInativos45 = $totalCollaborators - $countAtivos45;
         $percentInativos45 = $totalCollaborators > 0 ? ($countInativos45 / $totalCollaborators) * 100 : 0;
 
+        $clinics = MedicalClinic::getActive();
         return view('app.finance.analytics.index', compact(
-            'cities', 'selectedCities', 'chartLabels', 'chartActive', 'chartInactive',
-            'months', 'totalCollaborators', 'countAtivos45', 'percentAtivos45',
-            'countInativos45', 'percentInativos45', 'start', 'end'
-        ));
+                    'cities', 'clinics', 'selectedCities', 'selectedClinics', 'chartLabels', 'chartActive', 'chartInactive',
+                    'months', 'totalCollaborators', 'countAtivos45', 'percentAtivos45',
+                    'countInativos45', 'percentInativos45', 'start', 'end'
+                ));
     }
 
 
@@ -104,6 +128,7 @@ class AnalyticsController extends Controller
         
         $type = $request->get('type', 'long_term');
         $selectedCities = $request->get('city_ids', []);
+        $selectedClinics = $request->get('medical_clinics', []);
         $now = now();
         
         $headerCityNames = !empty($selectedCities) 
@@ -112,6 +137,12 @@ class AnalyticsController extends Controller
 
         if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
 
+        $headerClinicNames = !empty($selectedClinics)
+            ? MedicalClinic::whereIn('id', array_filter($selectedClinics, fn($v) => $v !== 'null'))->pluck('name')->toArray()
+            : ['Todas as clínicas'];
+
+        if (in_array('null', $selectedClinics)) $headerClinicNames[] = 'Sem Clínica';
+
         $day15 = $now->copy()->subDays(15);
         $day45 = $now->copy()->subDays(45);
         $day135 = $now->copy()->subDays(135);
@@ -119,6 +150,7 @@ class AnalyticsController extends Controller
         $query = Collaborator::where('active', true);
 
         $this->applyCityFilter($query, $selectedCities);
+        $this->applyClinicFilter($query, $selectedClinics);
 
         if ($type === 'long_term') {
             $title = "Inativos há mais de 45 dias";
@@ -166,14 +198,14 @@ class AnalyticsController extends Controller
                     ['raw_days', 'asc'], 
                     ['created_at_raw', 'asc']
                 ]);
-
         $html = View::make('app.finance.analytics.inactiveCollaborators', [
-            'title'      => $title,
-            'filterCity' => implode(', ', $headerCityNames),
-            'data'       => $data,
-            'date'       => $now->format('d/m/Y H:i'),
-            'user'       => Auth::user()
-        ])->render();
+                'title'        => $title,
+                'filterCity'   => implode(', ', $headerCityNames),
+                'filterClinic' => implode(', ', $headerClinicNames),
+                'data'         => $data,
+                'date'         => $now->format('d/m/Y H:i'),
+                'user'         => Auth::user()
+            ])->render();
         if (ob_get_length()) ob_end_clean();
         while (ob_get_level()) {
             ob_end_clean();
