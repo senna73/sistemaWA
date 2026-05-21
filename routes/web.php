@@ -161,4 +161,10 @@ Route::middleware(['auth', 'permission:Acesso aos dados de diárias'])->group(fu
 
 Route::get('/admin/finance/analytics/pdf', [AnalyticsController::class, 'exportPdf'])->name('analytics.pdf');
 Route::get('/admin/finance/analytics/pdf/ativos', [AnalyticsController::class, 'exportAtivosPdf'])->name('analytics.ativos.pdf');
+
+
+Route::prefix('admin/batches')->name('admin.batches.')->group(function () {
+    Route::put('/{batch}', [BatchesController::class, 'update'])->name('update');
+});
+
 require __DIR__.'/auth.php';

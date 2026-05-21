@@ -195,4 +195,21 @@ class BatchesController extends Controller
             return redirect()->back()->with('error', $e->getMessage());
         }
     }
+
+    public function update(Request $request, FinancialBatches $batch)
+    {
+        $request->validate([
+            'company_id'     => 'required|exists:companies,id',
+            'total_amount'   => 'required|numeric',
+            'period_start'   => 'required|date',
+            'period_end'     => 'required|date',
+            'invoice_number' => 'nullable|string',
+            'description'    => 'nullable|string',
+        ]);
+
+        $batch->update($request->all());
+
+        return redirect()->route('admin.batches.show', $batch->id)
+                        ->with('success', 'Lote atualizado com sucesso!');
+    }
 }

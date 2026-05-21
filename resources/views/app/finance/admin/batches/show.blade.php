@@ -21,6 +21,9 @@
                 </div>
             </div>
         @endif
+
+        @include('app.finance.admin.batches.edit-modal')
+
     </div>
 <div style="width: 100%; font-family: sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 20px; box-sizing: border-box;">    
     <div style="width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">        
