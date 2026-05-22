@@ -8,6 +8,7 @@ use App\Models\DailyRate;
 use App\Models\FinancialBatches;
 use App\Services\Finance\FechamentoBatchService;
 use Carbon\Carbon;
+use App\Models\FinancialBatcheInvoices as Invoice;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,6 +67,8 @@ class BatchesController extends Controller
 
     public function show(FinancialBatches $batch) 
     {
+        $batch->load('invoices');
+        
         $dailyRates = DailyRate::with(['collaborator', 'leader']) 
             ->where('company_id', $batch->company_id)
             ->where('active', true)
@@ -102,84 +105,54 @@ class BatchesController extends Controller
         $extratoFinanceiro = $movColab->concat($movLider)->filter(fn($i) => $i['valor'] > 0);
 
         $company = Company::find($batch->company_id);
-        return view('app.finance.admin.batches.show', compact('batch', 'extratoFinanceiro', 'financeiro', 'company'));
+
+        $companies = Company::orderBy('name', 'asc')->get();
+
+        return view('app.finance.admin.batches.show', compact(
+            'batch', 
+            'extratoFinanceiro', 
+            'financeiro', 
+            'company', 
+            'companies'
+        ));
     }
 
     public function store(Request $request)
     {
-        if ($request->has('total_amount')) {
-            $cleanAmount = str_replace(['.', ','], ['', '.'], $request->total_amount);
-            $request->merge(['total_amount' => $cleanAmount]);
-        }
+        $totalBatchAmount = (float) str_replace(['.', ','], ['', '.'], $request->total_amount);
 
-        $validated = $request->validate([
-            'company_id'   => 'required|exists:companies,id',
-            'total_amount' => 'required|numeric|min:0',
-            'status'       => 'nullable|in:pending,processing,completed,canceled',
-            'metadata'     => 'nullable|array',
-
-            'invoice_number' => 'nullable|string|max:255',
-            'description'    => 'nullable|string',
-
-            'period_start' => [
-                'required',
-                'date',
-                function ($attribute, $value, $fail) use ($request) {
-                    $lastBatch = DB::table('financial_batches')
-                        ->where('company_id', $request->company_id)
-                        ->orderBy('period_end', 'desc')
-                        ->first();
-
-                    if ($lastBatch) {
-                        $lastEnd = Carbon::parse($lastBatch->period_end);
-                        $newStart = Carbon::parse($value);
-                        $expectedStart = $lastEnd->copy()->addDay();
-
-                        if (!$newStart->isSameDay($expectedStart)) {
-                            $fail("Para esta empresa, o novo lote deve iniciar obrigatoriamente em " . $expectedStart->format('d/m/Y') . " (um dia após o último lote).");
-                        }
-                    }
-                    
-                },
-            ],
-            'period_end' => [
-                'required',
-                'date',
-                'after:period_start',
-                function ($attribute, $value, $fail) use ($request) {
-                    $start = Carbon::parse($request->period_start);
-                    $end = Carbon::parse($value);
-
-                    if ($start->diffInDays($end) < 6) {
-                        $fail('O período do lote deve ser de pelo menos 7 dias (uma semana).');
-                    }
-
-                    $overlap = DB::table('financial_batches')
-                        ->where('company_id', $request->company_id)
-                        ->where(function ($query) use ($start, $end) {
-                            $query->whereBetween('period_start', [$start, $end])
-                                ->orWhereBetween('period_end', [$start, $end]);
-                        })
-                        ->exists();
-
-                    if ($overlap) {
-                        $fail('O período selecionado entra em conflito com um lote já registrado.');
-                    }
-                },
-            ],
+        $batch = FinancialBatches::create([
+            'company_id'   => $request->company_id,
+            'total_amount' => $totalBatchAmount,
+            'period_start' => $request->period_start,
+            'period_end'   => $request->period_end,
+            'description'  => $request->description,
         ]);
 
-        $validated['remainder_amount'] = $request->remainder_amount ?? 0;
+        $numbers      = $request->input('invoice_numbers', []);
+        $amounts      = $request->input('invoice_amounts', []);
+        $descriptions = $request->input('invoice_descriptions', []);
 
-        $batch = FinancialBatches::create($validated);
-        
+        foreach ($numbers as $index => $number) {
+            if (!empty($number)) {
+                
+                $invoiceAmount = isset($amounts[$index]) 
+                    ? (float) str_replace(['.', ','], ['', '.'], $amounts[$index]) 
+                    : 0.0;
+
+                $batch->invoices()->create([
+                    'invoice_number' => $number,
+                    'amount'         => $invoiceAmount,
+                    'description'    => $descriptions[$index] ?? null,
+                ]);
+            }
+        }
+
         return response()->json([
-            'success' => true,
-            'message' => 'Lote financeiro criado com sucesso!',
-            'data'    => $batch
-        ], 201);
+            'status'  => 'success',
+            'message' => 'Lote financeiro criado e todas as notas salvas individualmente!'
+        ]);
     }
-
     public function process(Request $request, FechamentoBatchService $service)
     {
         try {
@@ -196,20 +169,42 @@ class BatchesController extends Controller
         }
     }
 
-    public function update(Request $request, FinancialBatches $batch)
+    public function update(Request $request, $id)
     {
-        $request->validate([
-            'company_id'     => 'required|exists:companies,id',
-            'total_amount'   => 'required|numeric',
-            'period_start'   => 'required|date',
-            'period_end'     => 'required|date',
-            'invoice_number' => 'nullable|string',
-            'description'    => 'nullable|string',
+        $batch = FinancialBatches::findOrFail($id);
+
+        $totalAmount = (float) str_replace(['.', ','], ['', '.'], $request->total_amount);
+
+        $batch->update([
+            'company_id'   => $request->company_id,
+            'total_amount' => $totalAmount,
+            'period_start' => $request->period_start,
+            'period_end'   => $request->period_end,
+            'description'  => $request->description,
         ]);
 
-        $batch->update($request->all());
+        $batch->invoices()->delete();
 
-        return redirect()->route('admin.batches.show', $batch->id)
-                        ->with('success', 'Lote atualizado com sucesso!');
+        $numbers      = $request->input('invoice_numbers', []);
+        $amounts      = $request->input('invoice_amounts', []);
+        $descriptions = $request->input('invoice_descriptions', []);
+
+        foreach ($numbers as $index => $number) {
+            if (!empty($number)) {
+                
+                $invoiceAmount = isset($amounts[$index]) 
+                    ? (float) str_replace(['.', ','], ['', '.'], $amounts[$index]) 
+                    : 0.0;
+
+                $batch->invoices()->create([
+                    'invoice_number' => $number,
+                    'amount'         => $invoiceAmount,
+                    'description'    => $descriptions[$index] ?? null,
+                    'recieved'       => false,
+                ]);
+            }
+        }
+
+        return redirect()->back()->with('success', 'Lote e notas fiscais atualizados com sucesso!');
     }
 }

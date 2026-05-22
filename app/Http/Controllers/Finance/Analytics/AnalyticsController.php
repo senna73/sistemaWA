@@ -121,7 +121,6 @@ class AnalyticsController extends Controller
                 ));
     }
 
-
     public function exportPdf(Request $request)
     {
         ini_set('memory_limit', '512M');

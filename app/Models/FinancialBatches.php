@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 
@@ -56,4 +57,8 @@ class FinancialBatches extends Model
                     ->whereColumn('daily_rate.start', '<=', 'financial_batches.period_end');
     }
 
+    public function invoices()
+    {
+        return $this->hasMany(FinancialBatcheInvoices::class, 'financial_batch_id');
+    }
 }
