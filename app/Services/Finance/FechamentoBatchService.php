@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Models\ConfigTable;
 use App\Models\FinancialBatch;
 use App\Models\DailyRate;
+use App\Models\FinancialBatcheInvoices;
 use App\Models\FinancialBatches;
 use App\Models\LeaderCostCenter;
 use Illuminate\Support\Facades\DB;
@@ -43,7 +44,37 @@ class FechamentoBatchService
             return $batch;
         });
     }
+    
+    /**
+     * Liquida uma nota fiscal individualmente e injeta o valor no capital da empresa
+     */
+    public function liquidarNotaFiscal(int $invoiceId, int $batchId)
+    {
+        return DB::transaction(function () use ($invoiceId, $batchId) {
+            
+            $invoice = FinancialBatcheInvoices::where('id', $invoiceId)
+                ->where('financial_batch_id', $batchId)
+                ->lockForUpdate()
+                ->firstOrFail();
 
+            if ($invoice->received) {
+                return false;
+            }
+
+            $invoice->update([
+                'received' => true,
+                'received_at' => now()
+            ]);
+
+            $this->ledgerService->receiveInvoicePayment(
+                $invoice->amount, 
+                $batchId, 
+                $invoice->invoice_number
+            );
+
+            return true;
+        });
+    }
     public function processarFechamento(int $batchId, float $valorSolicitadoCC)
     {
         try {

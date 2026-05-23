@@ -10,6 +10,17 @@ use Illuminate\Support\Facades\DB;
 
 class LedgerService
 {
+    public function receiveInvoicePayment(float $amount, int $batchId, string $invoiceNumber, int $cashAccountId = 1): Ledger
+    {
+        return $this->execute(
+            amount: $amount,
+            type: 'credit',
+            category: 'INVOICE_RECEIPT',
+            description: "Recebimento Nota Nº {$invoiceNumber}",
+            cashAccountId: $cashAccountId,
+            data: ['financial_batch_id' => $batchId]
+        );
+    }
     // Registra a entrada de capital via pagamento de boleto de um lote.
     public function receiveBatchPayment(int $batchId, int $cashAccountId = 1): Ledger
     {
@@ -24,6 +35,7 @@ class LedgerService
             data: ['financial_batch_id' => $batchId]
         );
     }
+    
     // Registra a saída de capital para quando há pagamento ao colaborador.
     public function payCollaborator(int $collaboratorId, float $amount, string $description, int $cashAccountId = 1): Ledger
     {

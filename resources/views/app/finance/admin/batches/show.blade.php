@@ -1,6 +1,6 @@
 <x-app-layout>
     <div style="padding: 20px 20px 0 20px; max-width: 100%; margin: 0 auto;">
-        {{-- Mensagem de Erro Crítico (Ex: Saldo insuficiente, Divergência de valores) --}}
+        {{-- Mensagem de Erro Crítico --}}
         @if(session('error'))
             <div style="background: #fef2f2; color: #b91c1c; padding: 16px; border-radius: 8px; border: 1px solid #fee2e2; margin-bottom: 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
                 <i class='bx bx-error-alt' style="font-size: 1.5rem;"></i>
@@ -23,218 +23,228 @@
         @endif
 
         @include('app.finance.admin.batches.edit-modal')
-
     </div>
-<div style="width: 100%; font-family: sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 20px; box-sizing: border-box;">    
-    <div style="width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">        
-        <div style="padding: 20px; border-bottom: 2px dashed #eee;">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
-                <div>
-                    <h5 style="margin: 0; color: #333; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
-                        Fechamento 
-                        <span style="background-color: #2c3e50; color: #fff; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                            {{$company->name}}
-                        </span>
-                    </h5>
-                    <small style="color: #888;">Período: {{ \Carbon\Carbon::parse($batch->period_start)->format('d/m') }} a {{ \Carbon\Carbon::parse($batch->period_end)->format('d/m/y') }}</small>
+
+    <div style="width: 100%; font-family: sans-serif; display: flex; flex-direction: column; gap: 20px; padding: 20px; box-sizing: border-box;">    
+        <div style="width: 100%; background: #fff; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); overflow: hidden;">        
+            <div style="padding: 20px; border-bottom: 2px dashed #eee;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h5 style="margin: 0; color: #333; text-transform: uppercase; letter-spacing: 1px; display: flex; align-items: center; gap: 8px;">
+                            Fechamento 
+                            <span style="background-color: #2c3e50; color: #fff; padding: 4px 10px; border-radius: 6px; font-weight: bold; font-size: 0.9em; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                {{$company->name}}
+                            </span>
+                        </h5>
+                        <small style="color: #888;">Período: {{ \Carbon\Carbon::parse($batch->period_start)->format('d/m') }} a {{ \Carbon\Carbon::parse($batch->period_end)->format('d/m/y') }}</small>
+                    </div>
                 </div>
 
-                {{-- Exibição do Número da Nota --}}
-                @if($batch->invoice_number)
-                    <div style="background: #f1f5f9; border: 1px solid #e2e8f0; padding: 6px 12px; border-radius: 6px; display: flex; align-items: center; gap: 6px;">
-                        <i class='bx bx-receipt' style="color: #475569; font-size: 1.1rem;"></i>
-                        <span style="color: #475569; font-weight: 700; font-size: 0.85rem; text-transform: uppercase;">
-                            Nota: {{ $batch->invoice_number }}
-                        </span>
+                @if($batch->description)
+                    <div style="margin-top: 15px; padding: 12px; background: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 4px;">
+                        <p style="margin: 0; font-size: 0.85rem; color: #64748b; line-height: 1.5;">
+                            <strong style="color: #475569; text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Descrição do Lote:</strong>
+                            {{ $batch->description }}
+                        </p>
                     </div>
                 @endif
             </div>
 
-            {{-- Exibição da Descrição --}}
-            @if($batch->description)
-                <div style="margin-top: 15px; padding: 12px; background: #f8fafc; border-left: 4px solid #cbd5e1; border-radius: 4px;">
-                    <p style="margin: 0; font-size: 0.85rem; color: #64748b; line-height: 1.5;">
-                        <strong style="color: #475569; text-transform: uppercase; font-size: 0.75rem; display: block; margin-bottom: 2px;">Descrição do Lote:</strong>
-                        {{ $batch->description }}
-                    </p>
+            <div style="padding: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <span style="color: #555;">(+) Faturamento Bruto (Receita)</span>
+                    <span style="font-weight: bold; color: #2ecc71; font-size: 1.1rem;">R$ {{ number_format($financeiro['receita_bruta'], 2, ',', '.') }}</span>
                 </div>
-            @endif
-        </div>
 
-        <div style="padding: 20px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <span style="color: #555;">(+) Faturamento Bruto (Receita)</span>
-                <span style="font-weight: bold; color: #2ecc71; font-size: 1.1rem;">R$ {{ number_format($financeiro['receita_bruta'], 2, ',', '.') }}</span>
-            </div>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
 
-            <hr style="border: 0; border-top: 1px solid #eee; margin: 15px 0;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
+                    <span style="color: #777;">(-) Repasse Colaboradores</span>
+                    <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['repasse_liquido'], 2, ',', '.') }}</span>
+                </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
-                <span style="color: #777;">(-) Repasse Colaboradores</span>
-                <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['repasse_liquido'], 2, ',', '.') }}</span>
-            </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
+                    <span style="color: #777;">(-) Comissões de Líderes</span>
+                    <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['comissoes_lider'], 2, ',', '.') }}</span>
+                </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
-                <span style="color: #777;">(-) Comissões de Líderes</span>
-                <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['comissoes_lider'], 2, ',', '.') }}</span>
-            </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
+                    <span style="color: #777;">(-) Custos Operacionais (T/A)</span>
+                    <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['custos_operacao'], 2, ',', '.') }}</span>
+                </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
-                <span style="color: #777;">(-) Custos Operacionais (T/A)</span>
-                <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['custos_operacao'], 2, ',', '.') }}</span>
-            </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
+                    <span style="color: #777;">(-) Encargos e Impostos</span>
+                    <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['impostos_taxas'], 2, ',', '.') }}</span>
+                </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 0.95rem;">
-                <span style="color: #777;">(-) Encargos e Impostos</span>
-                <span style="color: #e74c3c; font-weight: 500;">R$ {{ number_format($financeiro['impostos_taxas'], 2, ',', '.') }}</span>
-            </div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
+                    <span style="color: #555; font-weight: bold;">(=) Total de Saídas</span>
+                    <span style="font-weight: bold; font-size: 1.1rem;">R$ {{ number_format($extratoFinanceiro->sum('valor') + $financeiro['impostos_taxas'], 2, ',', '.') }}</span>
+                </div>
 
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee;">
-                <span style="color: #555; font-weight: bold;">(=) Total de Saídas</span>
-                <span style="font-weight: bold; font-size: 1.1rem;">R$ {{ number_format($extratoFinanceiro->sum('valor') + $financeiro['impostos_taxas'], 2, ',', '.') }}</span>
-            </div>
-        </div>
-
-        <div style="background: {{ $financeiro['lucro_real'] >= 0 ? '#27ae60' : '#c0392b' }}; padding: 20px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; color: white; display: flex; justify-content: space-between; align-items: center;">
-            <span style="font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Lucro Líquido Real</span>
-            <span style="font-size: 1.5rem; font-weight: bold;">R$ {{ number_format($financeiro['lucro_real'], 2, ',', '.') }}</span>
-        </div>
-    </div>
-</div>
-
-<div class="dashboard-container">
-    <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
-        <table style="width: 100%; border-collapse: collapse;">
-            <thead>
-                <tr style="background: #fcfcfc; border-bottom: 1px solid #eee;">
-                    <th style="text-align: left; padding: 12px 20px;">Favorecido</th>
-                    <th style="text-align: center; padding: 12px 20px;">Natureza</th>
-                    <th style="text-align: right; padding: 12px 20px;">Valor</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($extratoFinanceiro as $mov)
-                <tr>
-                    <td data-label="Favorecido" style="padding: 15px 20px; font-weight: 600;">{{ $mov['nome'] }}</td>
-                    <td data-label="Natureza" style="padding: 15px 20px; text-align: center;">
-                        <span style="background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem;">{{ $mov['tipo'] }}</span>
-                    </td>
-                    <td data-label="Valor" style="padding: 15px 20px; text-align: right; font-weight: bold;">R$ {{ number_format($mov['valor'], 2, ',', '.') }}</td>
-                </tr>
-                @endforeach
-                
-                <tr style="background: #f8fafc; border-top: 2px solid #e2e8f0;">
-                    <td data-label="Ajuste" style="padding: 15px 20px; font-weight: 700;">Centro de Custo Loja</td>
-                    <td data-label="Tipo" style="padding: 15px 20px; text-align: center;">
-                        <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 8px; font-size: 0.7rem;">AJUSTE</span>
-                    </td>
-                    <td data-label="Valor" style="padding: 15px 20px; text-align: right;">
-                        <div id="container_input" style="display: inline-flex; align-items: center; background: #fff; border: 2px solid #cbd5e1; border-radius: 10px; padding: 6px 12px; transition: border-color 0.2s; width: 150px; margin-left: auto;">
-                            <span style="color: #64748b; font-weight: 800; margin-right: 8px; font-size: 0.9rem;">R$</span>
-                            <input type="text" 
-                                id="input_centro_custo"
-                                name="centro_custo_loja" 
-                                form="form-fechamento"
-                                inputmode="numeric"
-                                placeholder="0,00"
-                                style="border: none; outline: none; text-align: right; width: 100%; font-weight: 700; color: #1e293b; font-size: 1rem; background: transparent;">
+                {{-- NOVA SEÇÃO: NOTAS FISCAIS DO LOTE (APARECE QUANDO EM PROCESSAMENTO OU COMPLETADO) --}}
+                @if($batch->status == 'processing' || $batch->status == 'completed')
+                    <div style="margin-top: 25px; padding-top: 20px; border-top: 2px solid #f1f5f9;">
+                        <h6 style="margin: 0 0 12px 0; font-size: 0.85rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px;">
+                            <i class='bx bx-receipt' style="font-size: 1.1rem;"></i> Liquidação de Notas Fiscais Registradas
+                        </h6>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            @forelse($batch->invoices as $invoice)
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: {{ $invoice->received ? '#f0fdf4' : '#fff' }}; border: 1px solid {{ $invoice->received ? '#bbf7d0' : '#e2e8f0' }}; border-radius: 8px; transition: background 0.2s;">
+                                    <div style="display: flex; align-items: center; gap: 12px;">
+                                        @if($batch->status == 'processing')
+                                            <input type="checkbox" 
+                                                   name="invoice_ids[]" 
+                                                   value="{{ $invoice->id }}" 
+                                                   form="form-fechamento"
+                                                   class="invoice-payment-checkbox"
+                                                   {{ $invoice->received ? 'checked disabled' : '' }}
+                                                   style="width: 18px; height: 18px; cursor: {{ $invoice->received ? 'not-allowed' : 'pointer' }}; accent-color: #16a34a;">
+                                        @else
+                                            <span style="color: #16a34a; display: flex; align-items: center;"><i class='bx bx-check-shield' style="font-size: 1.3rem;"></i></span>
+                                        @endif
+                                        
+                                        <div>
+                                            <span style="font-weight: 700; color: #1e293b; font-size: 0.95rem;">Nota Nº {{ $invoice->invoice_number }}</span>
+                                            @if($invoice->description)
+                                                <small style="display: block; color: #64748b; font-size: 0.8rem;">{{ $invoice->description }}</small>
+                                            @endif
+                                        </div>
+                                    </div>
+                                    
+                                    <div style="text-align: right; display: flex; align-items: center; gap: 12px;">
+                                        <span style="font-weight: 700; color: #1e293b; font-size: 1rem;">R$ {{ number_format($invoice->amount, 2, ',', '.') }}</span>
+                                        @if($invoice->received)
+                                            <span style="background: #dcfce7; color: #15803d; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">PAGO</span>
+                                        @else
+                                            <span style="background: #fef3c7; color: #d97706; font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 4px; text-transform: uppercase;">AGUARDANDO</span>
+                                        @endif
+                                    </div>
+                                </div>
+                            @empty
+                                <p style="margin: 0; padding: 15px; text-align: center; color: #64748b; font-size: 0.9rem; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1;">Nenhuma nota fiscal vinculada a este lote.</p>
+                            @endforelse
                         </div>
-                    </td>
-                </tr>
-
-            <tfoot>
-                <tr style="background: #1e293b;">
-                    <td colspan="2" class="total-label" style="padding: 20px; color: #fff; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px;">TOTAL DO DESEMBOLSO</td>
-                    <td style="padding: 20px; text-align: right; color: #fbbf24; font-size: 1.3rem; font-weight: 800;">
-                        R$ <span id="display_desembolso">{{ number_format($extratoFinanceiro->sum('valor') + $financeiro['impostos_taxas'], 2, ',', '.') }}</span>
-                    </td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <form action="{{ $batch->status == 'processing' ? route('admin.batches.confirm-receipt') : route('admin.batches.process') }}" method="POST" id="form-fechamento">
-            @csrf
-            
-            <input type="hidden" name="batch_id" value="{{ $batch->id }}">
-
-            <div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-                @php
-                    $isPending = $batch->status == 'pending';
-                    $isProcessing = $batch->status == 'processing';
-                    $isCompleted = $batch->status == 'completed';
-                @endphp
-
-                <button type="submit" 
-                    {{ $isCompleted ? 'disabled' : '' }}
-                    id="btn-submit"
-                    style="
-                        background: {{ $isCompleted ? '#64748b' : ($isProcessing ? '#15803d' : '#1e293b') }}; 
-                        color: white; 
-                        border: none; 
-                        padding: 12px 30px; 
-                        border-radius: 8px; 
-                        font-weight: bold; 
-                        cursor: {{ $isCompleted ? 'not-allowed' : 'pointer' }}; 
-                        display: flex; 
-                        align-items: center; 
-                        gap: 8px; 
-                        transition: all 0.2s;
-                        opacity: {{ $isCompleted ? '0.6' : '1' }};
-                    "
-                >
-                    @if($isCompleted)
-                        <i class='bx bx-check-shield'></i> LOTE FINALIZADO (RECEBIDO)
-                    @elseif($isProcessing)
-                        <i class='bx bx-money'></i> CONFIRMAR RECEBIMENTO DO BOLETO
-                    @else
-                        <i class='bx bx-check-double'></i> PROCESSAR FECHAMENTO
-                    @endif
-                </button>
+                    </div>
+                @endif
             </div>
-        </form>
 
-        {{-- Script para o efeito de carregamento ao clicar --}}
-        <script>
-            document.getElementById('form-fechamento').addEventListener('submit', function(e) {
-                const btn = document.getElementById('btn-submit');
-                
-                // Evita que o script rode se o botão já estiver desabilitado
-                if(btn.disabled) return;
-
-                btn.disabled = true;
-                btn.style.opacity = '0.7';
-                btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> PROCESSANDO...';
-            });
-        </script>
+            <div style="background: {{ $financeiro['lucro_real'] >= 0 ? '#27ae60' : '#c0392b' }}; padding: 20px; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; color: white; display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: bold; text-transform: uppercase; letter-spacing: 1px;">Lucro Líquido Real</span>
+                <span style="font-size: 1.5rem; font-weight: bold;">R$ {{ number_format($financeiro['lucro_real'], 2, ',', '.') }}</span>
+            </div>
+        </div>
     </div>
-</div>
 
+    <div class="dashboard-container">
+        <div style="background: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: hidden;">
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #fcfcfc; border-bottom: 1px solid #eee;">
+                        <th style="text-align: left; padding: 12px 20px;">Favorecido</th>
+                        <th style="text-align: center; padding: 12px 20px;">Natureza</th>
+                        <th style="text-align: right; padding: 12px 20px;">Valor</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($extratoFinanceiro as $mov)
+                    <tr>
+                        <td data-label="Favorecido" style="padding: 15px 20px; font-weight: 600;">{{ $mov['nome'] }}</td>
+                        <td data-label="Natureza" style="padding: 15px 20px; text-align: center;">
+                            <span style="background: #e0f2fe; color: #0369a1; padding: 4px 12px; border-radius: 12px; font-size: 0.75rem;">{{ $mov['tipo'] }}</span>
+                        </td>
+                        <td data-label="Valor" style="padding: 15px 20px; text-align: right; font-weight: bold;">R$ {{ number_format($mov['valor'], 2, ',', '.') }}</td>
+                    </tr>
+                    @endforeach
+                    
+                    <tr style="background: #f8fafc; border-top: 2px solid #e2e8f0;">
+                        <td data-label="Ajuste" style="padding: 15px 20px; font-weight: 700;">Centro de Custo Loja</td>
+                        <td data-label="Tipo" style="padding: 15px 20px; text-align: center;">
+                            <span style="background: #f1f5f9; padding: 4px 12px; border-radius: 8px; font-size: 0.7rem;">AJUSTE</span>
+                        </td>
+                        <td data-label="Valor" style="padding: 15px 20px; text-align: right;">
+                            <div id="container_input" style="display: inline-flex; align-items: center; background: #fff; border: 2px solid #cbd5e1; border-radius: 10px; padding: 6px 12px; transition: border-color 0.2s; width: 150px; margin-left: auto;">
+                                <span style="color: #64748b; font-weight: 800; margin-right: 8px; font-size: 0.9rem;">R$</span>
+                                <input type="text" 
+                                    id="input_centro_custo"
+                                    name="centro_custo_loja" 
+                                    form="form-fechamento"
+                                    inputmode="numeric"
+                                    placeholder="0,00"
+                                    {{ $batch->status !== 'pending' ? 'disabled' : '' }}
+                                    value="{{ $batch->status !== 'pending' ? number_format($batch->centro_custo_loja, 2, ',', '.') : '' }}"
+                                    style="border: none; outline: none; text-align: right; width: 100%; font-weight: 700; color: #1e293b; font-size: 1rem; background: transparent;">
+                            </div>
+                        </td>
+                    </tr>
+
+                <tfoot>
+                    <tr style="background: #1e293b;">
+                        <td colspan="2" class="total-label" style="padding: 20px; color: #fff; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px;">TOTAL DO DESEMBOLSO</td>
+                        <td style="padding: 20px; text-align: right; color: #fbbf24; font-size: 1.3rem; font-weight: 800;">
+                            R$ <span id="display_desembolso">{{ number_format($extratoFinanceiro->sum('valor') + $financeiro['impostos_taxas'] + ($batch->centro_custo_loja ?? 0), 2, ',', '.') }}</span>
+                        </td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            {{-- FORMULÁRIO DINÂMICO DE PROCESSAMENTO/CONFIRMAÇÃO --}}
+            <form action="{{ $batch->status == 'processing' ? route('admin.batches.confirm-receipt') : route('admin.batches.process') }}" method="POST" id="form-fechamento">
+                @csrf
+                <input type="hidden" name="batch_id" value="{{ $batch->id }}">
+
+                <div style="margin-top: 20px; display: flex; justify-content: flex-end; padding: 20px; box-sizing: border-box;">
+                    @php
+                        $isPending = $batch->status == 'pending';
+                        $isProcessing = $batch->status == 'processing';
+                        $isCompleted = $batch->status == 'completed';
+                    @endphp
+
+                    <button type="submit" 
+                        {{ $isCompleted ? 'disabled' : '' }}
+                        id="btn-submit"
+                        style="
+                            background: {{ $isCompleted ? '#64748b' : ($isProcessing ? '#16a34a' : '#1e293b') }}; 
+                            color: white; 
+                            border: none; 
+                            padding: 14px 35px; 
+                            border-radius: 8px; 
+                            font-weight: bold; 
+                            cursor: {{ $isCompleted ? 'not-allowed' : 'pointer' }}; 
+                            display: flex; 
+                            align-items: center; 
+                            gap: 8px; 
+                            transition: all 0.2s;
+                            opacity: {{ $isCompleted ? '0.6' : '1' }};
+                            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+                        "
+                    >
+                        @if($isCompleted)
+                            <i class='bx bx-check-shield' style="font-size: 1.2rem;"></i> LOTE TOTALMENTE LIQUIDADO
+                        @elseif($isProcessing)
+                            <i class='bx bx-money' style="font-size: 1.2rem;"></i> MARCAR NOTAS SELECIONADAS COMO PAGO
+                        @else
+                            <i class='bx bx-check-double' style="font-size: 1.2rem;"></i> PROCESSAR FECHAMENTO
+                        @endif
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </x-app-layout>
+
 <script>
-
-document.getElementById('form-fechamento').addEventListener('submit', function(e) {
-    const btn = this.querySelector('button[type="submit"]');
-    const inputCusto = document.getElementById('input_centro_custo');
-
-    if (inputCusto) {
-        let valorLimpo = inputCusto.value.replace(/\./g, '').replace(',', '.');
-        inputCusto.value = valorLimpo;
-    }
-
-    // Feedback visual genérico
-    btn.disabled = true;
-    btn.style.opacity = '0.7';
-    btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> AGUARDE...';
-});
-
 document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('form-fechamento');
     const input = document.getElementById('input_centro_custo');
     const container = document.getElementById('container_input');
     const displayDesembolso = document.getElementById('display_desembolso');
-    const displayLucro = document.getElementById('display_lucro'); 
 
     const desembolsoBase = {{ $extratoFinanceiro->sum('valor') + $financeiro['impostos_taxas'] }};
     const lucroMaximo = {{ $financeiro['lucro_real'] }};
+    const currentStatus = "{{ $batch->status }}";
 
     function showToast(message) {
         const existingToast = document.getElementById('custom-toast');
@@ -269,41 +279,61 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 4000);
     }
 
-    function atualizarTotais(valorNumerico) {
-        const novoDesembolso = desembolsoBase + valorNumerico;
-        if (displayDesembolso) {
-            displayDesembolso.innerText = novoDesembolso.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
-        }
-    }
-
-    input.addEventListener('input', function(e) {
-        let value = e.target.value.replace(/\D/g, "");
+    // Regra de Validação e Feedback do Formulário ao Enviar
+    form.addEventListener('submit', function(e) {
+        const btn = document.getElementById('btn-submit');
         
-        let valorNumerico = parseFloat(value / 100) || 0;
-
-        if (valorNumerico > lucroMaximo) {
-            valorNumerico = lucroMaximo;
-            showToast("Valor limitado ao lucro disponível: R$ " + lucroMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
-            container.style.borderColor = '#fb7185';
-        } else {
-            container.style.borderColor = '#3b82f6';
+        if (currentStatus === 'processing') {
+            // Conta quantos checkboxes não-disabled foram marcados
+            const checkedInvoices = document.querySelectorAll('.invoice-payment-checkbox:checked:not([disabled])');
+            if (checkedInvoices.length === 0) {
+                e.preventDefault();
+                showToast("Selecione pelo menos uma nota fiscal para marcar como paga!");
+                return false;
+            }
         }
 
-        e.target.value = valorNumerico.toLocaleString('pt-BR', { 
-            minimumFractionDigits: 2, 
-            maximumFractionDigits: 2 
+        if (input && !input.disabled) {
+            let valorLimpo = input.value.replace(/\./g, '').replace(',', '.');
+            input.value = valorLimpo;
+        }
+
+        btn.disabled = true;
+        btn.style.opacity = '0.7';
+        btn.innerHTML = '<i class="bx bx-loader-alt bx-spin"></i> PROCESSANDO...';
+    });
+
+    if (input && !input.disabled) {
+        function atualizarTotais(valorNumerico) {
+            const novoDesembolso = desembolsoBase + valorNumerico;
+            if (displayDesembolso) {
+                displayDesembolso.innerText = novoDesembolso.toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+            }
+        }
+
+        input.addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, "");
+            let valorNumerico = parseFloat(value / 100) || 0;
+
+            if (valorNumerico > lucroMaximo) {
+                valorNumerico = lucroMaximo;
+                showToast("Valor limitado ao lucro disponível: R$ " + lucroMaximo.toLocaleString('pt-BR', { minimumFractionDigits: 2 }));
+                container.style.borderColor = '#fb7185';
+            } else {
+                container.style.borderColor = '#3b82f6';
+            }
+
+            e.target.value = valorNumerico.toLocaleString('pt-BR', { 
+                minimumFractionDigits: 2, 
+                maximumFractionDigits: 2 
+            });
+
+            atualizarTotais(valorNumerico);
         });
 
-        atualizarTotais(valorNumerico);
-    });
-
-    input.addEventListener('focus', function() {
-        container.style.borderColor = '#3b82f6';
-    });
-
-    input.addEventListener('blur', function() {
-        container.style.borderColor = '#cbd5e1';
-    });
+        input.addEventListener('focus', function() { container.style.borderColor = '#3b82f6'; });
+        input.addEventListener('blur', function() { container.style.borderColor = '#cbd5e1'; });
+    }
 });
 </script>
 
@@ -318,50 +348,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     @media (max-width: 768px) {
-        .dashboard-container {
-            padding: 10px;
-            gap: 10px;
-        }
-        
-        tfoot tr {
-            display: flex !important;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-        
-        .total-label {
-            display: none;
-        }
-
-        #container_input {
-            width: 120px !important;
-        }
+        .dashboard-container { padding: 10px; gap: 10px; }
+        tfoot tr { display: flex !important; flex-direction: column; align-items: center; text-align: center; }
+        .total-label { display: none; }
+        #container_input { width: 120px !important; }
         thead { display: none; }
-
-        tr {
-            display: block;
-            margin-bottom: 10px;
-            border: 1px solid #eee !important;
-            border-radius: 8px;
-            background: #fff;
-        }
-
-        td {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 15px !important;
-            text-align: left !important;
-            border-bottom: 1px solid #f9f9f9;
-        }
-
-        td:before {
-            content: attr(data-label);
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            color: #888;
-            font-weight: bold;
-        }
+        tr { display: block; margin-bottom: 10px; border: 1px solid #eee !important; border-radius: 8px; background: #fff; }
+        td { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px !important; text-align: left !important; border-bottom: 1px solid #f9f9f9; }
+        td:before { content: attr(data-label); font-size: 0.7rem; text-transform: uppercase; color: #888; font-weight: bold; }
     }
 </style>

@@ -9,6 +9,7 @@ use App\Models\FinancialBatches;
 use App\Services\Finance\FechamentoBatchService;
 use Carbon\Carbon;
 use App\Models\FinancialBatcheInvoices as Invoice;
+use App\Models\FinancialBatcheInvoices;
 use Illuminate\Bus\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -57,14 +58,43 @@ class BatchesController extends Controller
 
     public function confirm_receipt(Request $request)
     {
+        $request->validate([
+            'batch_id' => 'required|exists:financial_batches,id',
+            'invoice_ids' => 'required|array',
+            'invoice_ids.*' => 'exists:financial_batch_invoices,id',
+        ]);
+
         try {
-            $this->fechamentoService->processarRecebimento($request->batch_id);
-            return back()->with('success', 'Pagamento confirmado e saldo adicionado ao caixa!');
+            $batch = FinancialBatches::findOrFail($request->batch_id);
+            $notasProcessadas = 0;
+
+            foreach ($request->invoice_ids as $invoiceId) {
+                $foiPaga = $this->fechamentoService->liquidarNotaFiscal($invoiceId, $batch->id);
+                if ($foiPaga) {
+                    $notasProcessadas++;
+                }
+            }
+
+            $totalInvoices = $batch->invoices()->count();
+            $paidInvoices = $batch->invoices()->where('received', true)->count();
+
+            if ($totalInvoices === $paidInvoices) {
+                $batch->update(['status' => 'completed']);
+                return redirect()->back()->with('success', "Todas as notas foram liquidadas e o capital empresarial foi atualizado. Lote finalizado!");
+            }
+
+            if ($notasProcessadas > 0) {
+                return redirect()->back()->with('success', "{$notasProcessadas} nota(s) marcada(s) como paga(s) e repassada(s) ao capital empresarial!");
+            }
+
+            return redirect()->back()->with('error', 'As notas selecionadas já haviam sido pagas anteriormente.');
+
         } catch (\Exception $e) {
-            return back()->with('error', $e->getMessage());
+            Log::error("Erro ao liquidar notas do lote #{$request->batch_id}: " . $e->getMessage());
+            return redirect()->back()->with('error', 'Erro interno ao processar o pagamento: ' . $e->getMessage());
         }
     }
-
+    
     public function show(FinancialBatches $batch) 
     {
         $batch->load('invoices');
@@ -119,7 +149,7 @@ class BatchesController extends Controller
 
     public function store(Request $request)
     {
-        $totalBatchAmount = (float) str_replace(['.', ','], ['', '.'], $request->total_amount);
+        $totalBatchAmount = $this->parseCurrency($request->total_amount);
 
         $batch = FinancialBatches::create([
             'company_id'   => $request->company_id,
@@ -137,7 +167,7 @@ class BatchesController extends Controller
             if (!empty($number)) {
                 
                 $invoiceAmount = isset($amounts[$index]) 
-                    ? (float) str_replace(['.', ','], ['', '.'], $amounts[$index]) 
+                    ? $this->parseCurrency($amounts[$index]) 
                     : 0.0;
 
                 $batch->invoices()->create([
@@ -153,6 +183,7 @@ class BatchesController extends Controller
             'message' => 'Lote financeiro criado e todas as notas salvas individualmente!'
         ]);
     }
+
     public function process(Request $request, FechamentoBatchService $service)
     {
         try {
@@ -173,7 +204,7 @@ class BatchesController extends Controller
     {
         $batch = FinancialBatches::findOrFail($id);
 
-        $totalAmount = (float) str_replace(['.', ','], ['', '.'], $request->total_amount);
+        $totalAmount = $this->parseCurrency($request->total_amount);
 
         $batch->update([
             'company_id'   => $request->company_id,
@@ -193,18 +224,35 @@ class BatchesController extends Controller
             if (!empty($number)) {
                 
                 $invoiceAmount = isset($amounts[$index]) 
-                    ? (float) str_replace(['.', ','], ['', '.'], $amounts[$index]) 
+                    ? $this->parseCurrency($amounts[$index]) 
                     : 0.0;
 
                 $batch->invoices()->create([
                     'invoice_number' => $number,
                     'amount'         => $invoiceAmount,
                     'description'    => $descriptions[$index] ?? null,
-                    'recieved'       => false,
+                    'received'       => false,
                 ]);
             }
         }
 
         return redirect()->back()->with('success', 'Lote e notas fiscais atualizados com sucesso!');
+    }
+
+    private function parseCurrency($value): float
+    {
+        if (empty($value)) return 0.0;
+
+        if (is_numeric($value)) return (float) $value;
+
+        if (strpos($value, ',') !== false && strpos($value, '.') !== false) {
+            $value = str_replace('.', '', $value);
+            $value = str_replace(',', '.', $value);
+        } 
+        elseif (strpos($value, ',') !== false) {
+            $value = str_replace(',', '.', $value);
+        }
+
+        return (float) $value;
     }
 }
