@@ -16,7 +16,9 @@ class Company extends Model
         'city',
         'uniforms_laid',
         'chain_of_stores',
-        'not_flashing'
+        'not_flashing',
+        'coordinator_id',
+        'coordinator_value',
     ];
     public static function getAll()
     {
@@ -48,5 +50,10 @@ class Company extends Model
             'id',
             'leader_id'
         );
+    }
+
+    public function coordinator()
+    {
+        return $this->belongsTo(User::class, 'coordinator_id');
     }
 }

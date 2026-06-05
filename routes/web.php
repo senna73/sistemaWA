@@ -19,6 +19,7 @@ use App\Livewire\FinantialResults;
 use App\Models\Collaborator;
 use App\Models\Company;
 use App\Models\CompanyHasSection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
@@ -89,8 +90,14 @@ Route::middleware('auth')->group(function () {
 
 
     Route::get('get-company-sections/{companyId}', [DailyRateController::class, 'getCompanySections'])->name('company.sections')->middleware('permission:Formulário de criação dos diárias');
-    Route::get('get-company/{companyId}', function ($companyId) {return Company::findOrFail($companyId);})->name('company.company');
-    Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {return Collaborator::findOrFail($colaboratorId);})->name('company.colaborator');
+    Route::get('get-company/{companyId}', function ($companyId) {
+        Log::info(Company::findOrFail($companyId)->load('coordinator'));
+
+        return Company::findOrFail($companyId)->load('coordinator');
+    })->name('company.company'); 
+
+
+Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {return Collaborator::findOrFail($colaboratorId);})->name('company.colaborator');
     Route::prefix('report')->group(function () {
         Route::get('/dailyrates', [ReportsController::class, 'dailyRates'])->name('report.daily-rates');
         Route::get('/financial', [ReportsController::class, 'financial'])->name('report.financial');

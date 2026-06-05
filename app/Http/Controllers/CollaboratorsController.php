@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\CityHasCollaborator;
 use App\Models\Collaborator;
 use App\Models\MedicalClinic;
+use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
@@ -145,6 +146,7 @@ class CollaboratorsController extends Controller
     public function edit(string $id)
     {
         $collaborator = Collaborator::findOrFail($id);
+        
         $selectedCities = CityHasCollaborator::where('collaborator_id', $id)
             ->pluck('city_id')
             ->toArray();
@@ -152,6 +154,8 @@ class CollaboratorsController extends Controller
 
         $available_clinics = MedicalClinic::getActive();
 
+
+        
         return view('app.collaborators.edit', [
             'collaborator'      => $collaborator,
             'cities'            => $cities,

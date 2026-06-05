@@ -9,6 +9,7 @@ use App\Models\CompanyHasSection;
 use App\Models\Section;
 use App\Http\Controllers\Controller;
 use App\Models\City;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Exception;
 use Illuminate\Support\Facades\Validator;
@@ -59,24 +60,23 @@ class CompanyController extends Controller
     public function create()
     {
         $sections = Section::all();
+        $coordinators = User::where('role', 'coordinator')->get();
 
         return View('app.companies.edit', [
                                     'sections' => $sections,
                                     'cities' => City::all(),
                                     'company' => null,
-
+                                    'coordinators' => $coordinators,
                                 ]);
     }
 
     /**
      * Store a newly created resource in storage.
      */
-
     public function store(Request $request)
     {
-        //dd($request->all());
         try {
-            DB:: beginTransaction();
+            DB::beginTransaction();
 
             $validator = Validator::make($request->all(), [
                 'name' => ['required', 'string', 'max:255'],
@@ -100,16 +100,18 @@ class CompanyController extends Controller
                 ['name' => ucfirst(strtolower($request->city_select))]
             );
 
-            // Cria registro de estabeleccimento
+            // Cria registro de estabelecimento salvando o valor inteiro puro
             $company = Company::create([
-                'name' => $request->name,
-                'document' => Number::onlyNumber($request->document),
-                'chain_of_stores' => $request->category,
-                'city' => $city->name, // Por enquanto, salva o nome da cidade
-                'uniforms_laid' => $request->uniforms_laid ?? 0,
-                'not_flashing' => filter_var($request->not_flashing, FILTER_VALIDATE_BOOLEAN),
-                'observation' => $request->observation,
-            ]);
+                    'name' => $request->name,
+                    'document' => Number::onlyNumber($request->document),
+                    'chain_of_stores' => $request->category,
+                    'city' => $city->name, 
+                    'uniforms_laid' => $request->uniforms_laid ?? 0,
+                    'not_flashing' => filter_var($request->not_flashing, FILTER_VALIDATE_BOOLEAN),
+                    'observation' => $request->observation,
+                    'coordinator_id' => $request->coordinator_id ?: null,
+                    'coordinator_value' => $request->coordinator_value ?? 0, // Recebe o int direto do input nativo
+                ]);
 
             // Cria relação de pertencimento, 1:1
             DB::table('company_has_city')->insert([
@@ -121,7 +123,6 @@ class CompanyController extends Controller
 
             if($request->section_id) {
                 foreach($request->section_id as $section_id){
-
                     CompanyHasSection::updateOrCreate(
                     [
                         'company_id' => $company->id,
@@ -137,6 +138,9 @@ class CompanyController extends Controller
                         'leaderComission' => $request->comissao[$section_id],
                         'perHour' => isset($request->perHour[$section_id]) && $request->perHour[$section_id] === 'on',
                         'supervisorPay' => $request->supervisor[$section_id],
+                        
+                        'coordinator_id' => $request->coordinator_id[$section_id] ?? null,
+                        'coordinator_value' => $request->coordinator_value[$section_id] ?? 0,
                         'active' => true,
                     ]);
                 }
@@ -156,7 +160,7 @@ class CompanyController extends Controller
             return response()->json([
                 'title'=>'Erro na validação',
                 'message'=>$exception->getMessage(),
-                'type' => 'error'],status: 500);
+                'type' => 'error'], 500);
         }
     }
 
@@ -175,11 +179,13 @@ class CompanyController extends Controller
     {
         $company = Company::find($id);
         $sections = Section::all();
+        $coordinators = User::where('role', 'coordinator')->get();
 
         return view('app.companies.edit',[
                                         'company' => $company,
                                         'sections' => $sections,
                                         'cities' => City::all(),
+                                        'coordinators' => $coordinators
                                         ]);
     }
 
@@ -218,16 +224,25 @@ class CompanyController extends Controller
                 'name' => ucfirst(strtolower($request->city_select)),
             ]);
 
+            $coordinatorValueClean = $request->coordinator_value;
+            if (!is_numeric($coordinatorValueClean)) {
+                $coordinatorValueClean = str_replace(['R$', ' ', '.'], '', $coordinatorValueClean);
+                $coordinatorValueClean = str_replace(',', '.', $coordinatorValueClean);
+                $coordinatorValueClean = preg_replace('/[^0-8.,]/', '', $coordinatorValueClean); 
+                $coordinatorValueClean = floatval($coordinatorValueClean) ?: 0;
+            }
+
             $company->update([
                 'name' => $request->name,
                 'document' => Number::onlyNumber($request->document),
                 'chain_of_stores' => $request->category,
-                'city' => $city->name, // armazena o nome da cidade
+                'city' => $city->name,
                 'uniforms_laid' => $request->uniforms_laid ?? 0,
                 'not_flashing' => filter_var($request->not_flashing, FILTER_VALIDATE_BOOLEAN),
                 'observation' => $request->observation,
+                'coordinator_id' => $request->coordinator_id ?: null,
+                'coordinator_value' => $coordinatorValueClean,
             ]);
-
             // Garante que a relação company-city seja 1:1
             DB::table('company_has_city')->updateOrInsert(
                 [
@@ -256,6 +271,9 @@ class CompanyController extends Controller
                     'leaderComission' => $request->comissao[$section_id],
                     'perHour' => isset($request->perHour[$section_id]) && $request->perHour[$section_id] === 'on',
                     'supervisorPay' => $request->supervisor[$section_id],
+                    
+                    'coordinator_id' => $request->coordinator_id[$section_id] ?? null,
+                    'coordinator_value' => $request->coordinator_value[$section_id] ?? 0,
                     'active' => true,
                 ]);
             }

@@ -75,7 +75,7 @@ class FechamentoBatchService
             return true;
         });
     }
-    public function processarFechamento(int $batchId, float $valorSolicitadoCC)
+public function processarFechamento(int $batchId, float $valorSolicitadoCC)
     {
         try {
             $batch = FinancialBatches::with(['company.costCenter'])
@@ -83,13 +83,6 @@ class FechamentoBatchService
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            $start = Carbon::parse($batch->period_start)->startOfDay(); // 00:00:00
-            $end = Carbon::parse($batch->period_end)->endOfDay();       // 23:59:59
-
-            $dailyRates = DailyRate::where('company_id', $batch->company_id)
-                ->whereBetween('start', [$start, $end])
-                ->where('active', true)
-                ->get();
             if ($batch->status !== 'pending') {
                 throw new \Exception("Lote #{$batchId} já foi processado.");
             }
@@ -103,7 +96,6 @@ class FechamentoBatchService
                     ->where('active', true)
                     ->get();
                     
-                // O Bruto (total_amount) deve ser a soma do 'earned' das diárias
                 $totalBrutoBatch = (float) $batch->total_amount;
                 $somaEarnedDiarias = (float) $dailyRates->sum('earned');
 
@@ -111,31 +103,49 @@ class FechamentoBatchService
                     throw new \Exception("Inconsistência: Soma das diárias (R$ $somaEarnedDiarias) difere do total do lote (R$ $totalBrutoBatch).");
                 }
 
-                // Saída
+                // Saídas operacionais básicas
                 $somaPagarColaboradores = (float) $dailyRates->sum('pay_amount'); 
+                
+                $somaPagarCoordenadores = (float) $dailyRates->sum('coordinator_value');
 
                 $taxConfig = ConfigTable::where('id', 'tax_default')->first();
                 $taxRateRaw = $taxConfig ? (float) $taxConfig->value : 14.38; 
                 $valorImpostos = $totalBrutoBatch * ($taxRateRaw / 100);
 
-                // O Bruto deve cobrir: Impostos + Pagamentos + Valor solicitado para o Centro de Custo
-                $custoTotalOperacional = $valorImpostos + $somaPagarColaboradores + $valorSolicitadoCC;
+                $custoTotalOperacional = $valorImpostos + $somaPagarColaboradores + $somaPagarCoordenadores + $valorSolicitadoCC;
+                
                 if ($custoTotalOperacional > $totalBrutoBatch) {
-                    $saldoDisponivel = $totalBrutoBatch - ($valorImpostos + $somaPagarColaboradores);
+                    $saldoDisponivel = $totalBrutoBatch - ($valorImpostos + $somaPagarColaboradores + $somaPagarCoordenadores);
                     throw new \Exception(
                         "Saldo Insuficiente para movimentar R$ $valorSolicitadoCC! " .
-                        "Disponível após impostos e diárias: R$ " . number_format($saldoDisponivel, 2)
+                        "Disponível após impostos, diárias e coordenação: R$ " . number_format($saldoDisponivel, 2)
                     );
                 }
 
-                // Execução dos Pagamentos (ColaboratorWallets)
+                // Execução dos Pagamentos dos Colaboradores (ColaboratorWallets)
                 foreach ($dailyRates as $daily) {
-                    $wallet_history = $this->collaboratorWalletService->credit(
+                    $this->collaboratorWalletService->credit(
                         $daily->collaborator_id, 
                         $daily->pay_amount,
                         "Pagamento Lote #{$batch->id}",
                         [],
                         $daily->start
+                    );
+                }
+
+                $pagamentosCoordenadores = $dailyRates->whereNotNull('coordinator_id')
+                    ->where('coordinator_value', '>', 0)
+                    ->groupBy('coordinator_id');
+
+                foreach ($pagamentosCoordenadores as $coordinatorId => $diariasDoCoordenador) {
+                    $totalCustoCoordenador = (float) $diariasDoCoordenador->sum('coordinator_value');
+                    
+                    $this->collaboratorWalletService->credit(
+                        $coordinatorId,
+                        $totalCustoCoordenador,
+                        "Remuneração de Coordenação Lote #{$batch->id}",
+                        [],
+                        now()
                     );
                 }
 
@@ -155,7 +165,8 @@ class FechamentoBatchService
                     'processed_at'       => now(),
                     'tax_amount'         => $valorImpostos,
                     'cost_center_amount' => $valorSolicitadoCC,
-                    'collaborator_total' => $somaPagarColaboradores
+                    'collaborator_total' => $somaPagarColaboradores,
+                    'coordinator_total' => $somaPagarCoordenadores
                 ]);
 
                 return $batch;

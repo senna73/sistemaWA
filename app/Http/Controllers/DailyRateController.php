@@ -138,7 +138,6 @@ class DailyRateController extends Controller
      */
     public function store(Request $request)
     {
-
         try {
             $requested_section = CompanyHasSection::where('company_id', $request->company_id)->where('section_id', $request->sectionSelect_id)->firstOrFail();
             
@@ -224,6 +223,9 @@ class DailyRateController extends Controller
                 'company_id' => $request->company_id,
                 'user_id' => $request->user_id,
 
+                'coordinator_id' => $company->coordinator_id ?? null,
+                'coordinator_value' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
+
                 'hourly_rate' => $hourlyRate,
                 
                 'start' => $request->start,
@@ -304,7 +306,6 @@ class DailyRateController extends Controller
             ], 422);
         }
 
-
         if ($requested_section->perHour === 1 && is_null($request->end)) {
             return response()->json([
                 'type' => 'error',
@@ -375,6 +376,9 @@ class DailyRateController extends Controller
                 'total_time' => $request->total_time,
 
                 'hourly_rate' => $request->hourly_rate,
+                
+                'coordinator_id' => $company->coordinator_id ?? null,
+                'coordinator_value' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
 
                 'leader_comission' => !empty($request->leaderComission_id) ? Money::unformat($request->leaderComission_id) : 0,
                 'transportation' => !empty($request->transport_id) ? Money::unformat($request->transport_id) : 0,

@@ -4,10 +4,10 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Cadastrando Diária</h5>
-            </div> 
+            </div>
+
             <div class="card-body">
                 <form id="form-hourly-rate">
-
                     <div class="mb-3">
                         <label class="form-label" for="collaborator_id">Colaborador</label>
                         <select class="form-control" id="collaborator_id" name="collaborator_id">
@@ -15,11 +15,11 @@
                             @foreach ($collaborators as $colaborator)
                                 <option value="{{ $colaborator->id }}" {{ ($dailyRate?->collaborator_id ?? 0) == $colaborator->id ? 'selected' : '' }}>
                                     {{ $colaborator->name }}
-                                </option>                            
+                                </option>
                             @endforeach
                         </select>
                     </div>
-                
+
                     <div class="mb-3">
                         <label class="form-label" for="company_id">Empresa</label>
                         <select class="form-control" id="company_id" name="company_id">
@@ -28,46 +28,59 @@
                                 <option value="{{ $company->id }}" {{ ($dailyRate?->collaborator_id ?? 0) == $company->id ? 'selected' : '' }}>
                                     {{ $company->name }}
                                 </option>
+                                <option value="{{ $company->id }}" {{ ($dailyRate?->company_id ?? 0) == $company->id ? 'selected' : '' }}>
+
                             @endforeach
                         </select>
                     </div>
+
+
+
                     <div class="mb-3">
                         <label class="form-label" for="sectionSelect_id">Setor Trabalhado</label>
                         <select class="form-control" id="sectionSelect_id" name="sectionSelect_id" disabled>
-
                         </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="start">Chegada</label>
                         <input type="datetime-local" class="form-control" id="start" name="start" value="{{ $dailyRate?->start ?? '' }}">
                     </div>
-
                     <div class="mb-3">
                         <label class="form-label" for="end">Saída</label>
                         <input type="datetime-local" class="form-control" id="end" disabled name="end" value="{{ $dailyRate?->end ?? '' }}">
                     </div>
                     <div class="mb-3">
-                            <label class="form-label" for="feeding_id">Alimentação</label>
-                            <input type="checkbox" class="" id="feeding_id" name="feeding_id" {{ isset($dailyRate) && $dailyRate?->feeding != 0 ? 'checked' : ''}}> R$10,00
-                        </div>
+                        <label class="form-label" for="feeding_id">Alimentação</label>
+                        <input type="checkbox" class="" id="feeding_id" name="feeding_id" {{ isset($dailyRate) && $dailyRate?->feeding != 0 ? 'checked' : ''}}> R$10,00
+                    </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="total_time">Horas Trabalhadas</label>
                         <input type="text" class="form-control" id="total_time" name="total_time" data-mask="00:00" readonly value="{{ $dailyRate?->total_time ?? '' }}">
                     </div>
-                    
+
                     <input type="text" class="form-control" id="imposto_paid_id" name="imposto_paid_id" hidden readonly value="0">
+
 <!-- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -->
 <!-- Abaixo está a parte da tela reservada para usuários com permissão de acesso e registro de dados financeiros -->
                     <div {{ Auth::user()->hasPermissionTo('Visualizar e inserir informações financeiras nas diárias') ? '' : 'hidden' }}>
-                        
-                        
-                        <div class="d-flex">
-                            <div class="mb-3 me-3">
+                        <div class="row mb-3">
+                            <div class="col-md-6 col-12 mb-2 mb-md-0">
+                                <label class="form-label" for="coordinator_name">Nome Coordenador</label>
+                                <input type="text" class="form-control" id="coordinator_name" readonly value="Sem coordenador">
+                            </div>
+                            
+                            <div class="col-md-6 col-12">
+                                <label class="form-label" for="coordinator_pay_id">Valor Coordenador</label>
+                                <input type="text" class="form-control money" id="coordinator_pay_id" readonly name="coordinator_pay_id" value="">
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6 col-12 mb-2 mb-md-0">
                                 <label class="form-label" for="employee_pay_id">Colaborador</label>
                                 <input type="text" class="form-control money" id="employee_pay_id" readonly name="employee_pay_id" value="">
                             </div>
-                            <div class="mb-3">
+                            <div class="col-md-6 col-12">
                                 <label class="form-label" for="leaderComission_id">Comissão</label>
                                 <input type="text" class="form-control money" id="leaderComission_id" readonly name="leaderComission_id" value="">
                             </div>
@@ -78,14 +91,13 @@
                                 <label class="form-label" for="inss_id">INSS Pago</label>
                                 <input type="text" class="form-control" id="inss_id" name="inss_id" value="{{ $inss_pago ?? '' }}">
                             </div>
-
                         </div>
-                        
+
                         <div class="mb-3">
                             <label class="form-label" for="transport_id">Transporte</label>
                             <input type="text" class="form-control money" id="transport_id" name="transport_id" value="{{ $dailyRate?->transportation ?? '' }}">
                         </div>
-                        
+
                         <div class="mb-3">
                             <label class="form-label" for="addition">Acréscimos</label>
                             <input type="text" class="form-control money" id="addition" name="addition" value="{{ $dailyRate?->addition ?? '' }}">
@@ -111,14 +123,11 @@
                                 <label class="form-label" for="imposto_id">Imposto (%)</label>
                                 <input type="number" class="form-control percentage" id="imposto_id" name="imposto_id" value="{{$imposto_pago ?? 0}}">
                             </div>
-
                             <div class="mb-3">
                                 <label class="form-label" for="total_liq">Valor Total Liquido</label>
                                 <input type="text" class="form-control" x-mask:dynamic="$money($input, 'R$')" id="total_liq" name="total_liq" readonly value="{{ $dailyRate?->total ?? '' }}">
                             </div>
-
                         </div>
-                        
                     </div>
 <!-- --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- -->
 
@@ -212,7 +221,6 @@
             }
         });
 
-
         $('#collaborator_id').select2({
             theme: 'bootstrap-5'
         });
@@ -250,7 +258,6 @@
                 success: function(response) {
                     if (response && response.value !== undefined) {
                         $additionField.val(response.value);
-                        
                         calcular(); 
                         
                         console.log(`Valor extra carregado: ${response.value}`);
@@ -267,7 +274,6 @@
                     calcular();
                 }
             });
-
         } else {
             $additionField.val(0);
             calcular();
@@ -386,6 +392,15 @@
             dataType: "json",
             success: function (company) {
                 selectedCompany = company;
+
+                if (company) {
+                    let coordinatorName = (company.coordinator && company.coordinator.name) ? company.coordinator.name : 'Sem coordenador cadastrado';
+                    $('#coordinator_name').val(coordinatorName);
+
+                    let coordinatorValue = company.coordinator_value ? parseFloat(company.coordinator_value).toFixed(2) : '0.00';
+                    $('#coordinator_pay_id').val(coordinatorValue).trigger('input');
+                }
+
                 calcular();
             },
             error: function (xhr) {
@@ -466,11 +481,16 @@
         let earned = selectedSection.earned;
         let employee_discount = Number(((parseFloat(document.getElementById('employee_discount').inputmask.unmaskedvalue()) || 0) / 100).toFixed(2));
         
+        let coordinator_pay = 0;
+        if (document.getElementById('coordinator_pay_id')) {
+            coordinator_pay = Number(((parseFloat(document.getElementById('coordinator_pay_id').inputmask.unmaskedvalue()) || 0) / 100).toFixed(2));
+        }
+
         let pay_amount = selectedSection.employeePay;
         if (selectedCollaborator.is_leader === 1) {
             leaderComission = 0;
             pay_amount = selectedSection.leaderPay;
-        }else if (selectedCollaborator.is_extra === 1) {
+        } else if (selectedCollaborator.is_extra === 1) {
             pay_amount = selectedSection.extra;
         } else if (selectedCollaborator.is_supervisor === 1) {
             pay_amount = selectedSection.supervisorPay;
@@ -483,7 +503,7 @@
 
         $('#employee_pay_id').val((pay_amount + feeding - employee_discount).toFixed(2));
         let inss_discount = $('#inss_id').val();
-        if (selectedCompany.not_flashing) {
+        if (selectedCompany && selectedCompany.not_flashing) {
             inss_discount = 0;
         }
         
@@ -491,14 +511,14 @@
         console.log("imposto: ", tax);
         
         let total = ((earned)).toFixed(2);
-        let total_liq = (total * (1-tax) - (pay_amount + feeding - employee_discount) - transport - inss_discount - leaderComission).toFixed(2);
+        
+        let total_liq = (total * (1-tax) - (pay_amount + feeding - employee_discount) - transport - inss_discount - leaderComission - coordinator_pay).toFixed(2);
 
         $("#leaderComission_id").val(leaderComission.toFixed(2));
         $('#total').val(parseFloat(total).toFixed(2));
         $('#imposto_paid_id').val((total * tax).toFixed(2));
         $('#total_liq').val(parseFloat(total_liq).toFixed(2));
     }
-
     function difHourly(start, end) {
         try {
             if (start == "" || end == "") return 0;

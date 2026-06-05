@@ -22,7 +22,25 @@
                             @endforeach
                         </select>
                     </div>
-
+                    <div class="row mt-3 mb-3">
+                        <div class="col-md-8">
+                            <label class="form-label" for="coordinator_id">Coordenador Geral</label>
+                            <select id="coordinator_id" name="coordinator_id" class="form-control select2-coordinator">
+                                <option value="">Selecione um coordenador (Opcional)</option>
+                                @foreach($coordinators as $coordinator)
+                                    <option value="{{ $coordinator->id }}" 
+                                        {{ old('coordinator_id', $company?->coordinator_id) == $coordinator->id ? 'selected' : '' }}>
+                                        {{ $coordinator->name }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="coordinator_value">Valor Coordenação</label>
+                            <input type="number" step="1" class="form-control" id="coordinator_value" name="coordinator_value" 
+                                placeholder="0" value="{{ old('coordinator_value', $company?->coordinator_value ?? '') }}">
+                        </div>
+                    </div>
                     <x-input id="uniforms_laid" name="uniforms_laid" type="number" label="Qtd. Uniformes em Loja" :value="$company?->uniforms_laid ?? null" placeholder="Quantidade de uniformes em loja" />
 
                     <div class="mb-3">
@@ -88,6 +106,20 @@
         });
     });
 
+    $(document).ready(function () {
+        let cnpjMask = new Inputmask('99.999.999/9999-99', {
+            placeholder: ' ',
+            clearIncomplete: true
+        });
+        cnpjMask.mask('.cnpj');
+
+        $('#coordinator_id').select2({
+            placeholder: "Selecione um coordenador",
+            allowClear: true,
+            width: '100%'
+        });
+
+    });
     function createSectionCard(collapseId, setorId, setorNome, earned, employee_pay, extra, leader_pay, comission, perHour, supervisor){
         return `
                 <div class="accordion-item card-body mb-1 w-100">
@@ -377,6 +409,11 @@
             allowMinus: true
         });
         moneyMask.mask('.money');
+        $('#coordinator_id').select2({
+            placeholder: "Selecione um coordenador",
+            allowClear: true,
+            width: '100%'
+        });
     });
 
     window.onload = function() {

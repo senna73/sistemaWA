@@ -99,23 +99,25 @@ class BatchesController extends Controller
     {
         $batch->load('invoices');
         
-        $dailyRates = DailyRate::with(['collaborator', 'leader']) 
+        $dailyRates = DailyRate::with(['collaborator', 'leader', 'coordinator']) 
             ->where('company_id', $batch->company_id)
             ->where('active', true)
             ->whereBetween('start', [$batch->period_start->startOfDay(), $batch->period_end->endOfDay()])
             ->get();
 
         $financeiro = [
-            'receita_bruta'    => $dailyRates->sum('earned'),
-            'repasse_liquido'  => $dailyRates->sum('pay_amount') - $dailyRates->sum('employee_discount'),
-            'comissoes_lider'  => $dailyRates->sum('leader_comission'),
-            'custos_operacao'  => $dailyRates->sum('transportation') + $dailyRates->sum('feeding'),
-            'impostos_taxas'   => $dailyRates->sum('tax_paid') + $dailyRates->sum('inss_paid'),
+            'receita_bruta'      => $dailyRates->sum('earned'),
+            'repasse_liquido'    => $dailyRates->sum('pay_amount') - $dailyRates->sum('employee_discount'),
+            'comissoes_lider'    => $dailyRates->sum('leader_comission'),
+            'custos_coordenador' => $dailyRates->sum('coordinator_value'), 
+            'custos_operacao'    => $dailyRates->sum('transportation') + $dailyRates->sum('feeding'),
+            'impostos_taxas'     => $dailyRates->sum('tax_paid') + $dailyRates->sum('inss_paid'),
         ];
 
         $financeiro['lucro_real'] = $financeiro['receita_bruta'] - (
             $financeiro['repasse_liquido'] + 
             $financeiro['comissoes_lider'] + 
+            $financeiro['custos_coordenador'] + 
             $financeiro['custos_operacao'] + 
             $financeiro['impostos_taxas']
         );
@@ -132,7 +134,15 @@ class BatchesController extends Controller
             'tipo' => 'Comissão'
         ]);
 
-        $extratoFinanceiro = $movColab->concat($movLider)->filter(fn($i) => $i['valor'] > 0);
+        // ADICIONADO: Agrupamento dos valores por coordenador para o extrato
+        $movCoordenador = $dailyRates->whereNotNull('coordinator_id')->groupBy('coordinator_id')->map(fn($g) => [
+            'nome' => $g->first()->coordinator->name ?? 'Coordenador Não Identificado',
+            'valor' => $g->sum('coordinator_value'),
+            'tipo' => 'Coordenação'
+        ]);
+
+        // ALTERADO: Concatenando também o movimento dos coordenadores no extrato final
+        $extratoFinanceiro = $movColab->concat($movLider)->concat($movCoordenador)->filter(fn($i) => $i['valor'] > 0);
 
         $company = Company::find($batch->company_id);
 

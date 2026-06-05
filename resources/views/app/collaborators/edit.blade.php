@@ -19,10 +19,10 @@
                         <input type="text" class="form-control cpf" id="basic-default-fullname" name="document" placeholder="000.000.000-00" value="{{ $collaborator?->document ?? ''}}" />
                     </div>
                     <div class="d-flex">
-                          <div class="form-check mb-3 me-2">
-                           <input class="form-check-input me-2" type="checkbox" id="intermittent_contract" name="intermittent_contract" 
+                        <div class="form-check mb-3 me-2">
+                            <input class="form-check-input me-2" type="checkbox" id="intermittent_contract" name="intermittent_contract" 
                                 {{ isset($collaborator) && $collaborator?->intermittent_contract == 1 ? 'checked' : '' }}>
-                        <label class="form-check-label" for="intermittent_contract">Contrato Intermitente</label>
+                            <label class="form-check-label" for="intermittent_contract">Contrato Intermitente</label>
                         </div>
 
                         <div class="form-check mb-3  me-2">
@@ -99,10 +99,10 @@
 
 <script>
     $(document).ready(function() {
-    $('#cities_can_work').select2({
-            placeholder: "Selecione a(s) cidade(s) em que Trabalha",
-            allowClear: true
-        });
+        $('#cities_can_work').select2({
+                placeholder: "Selecione a(s) cidade(s) em que Trabalha",
+                allowClear: true
+            });
     });
 
     function post() {
