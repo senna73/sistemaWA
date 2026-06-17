@@ -86,14 +86,14 @@ class AcordoValorExtraController extends Controller
                                         }
                                     ])->get();
         
-        $city_id  = CompanyHasCity::where('company_id', $company_id)->select('city_id');
-        
-        if (is_null($city_id)) {
-            $colaborators_data = collect();
-        }else {
+        $city_ids = CompanyHasCity::where('company_id', $company_id)->pluck('city_id')->toArray();
+
+        if (empty($city_ids)) {
+            $collaborators_data = collect();
+        } else {
             $excludedCollaboratorIds = $acordos->pluck('collaborator_id')->toArray();
 
-            $collaboratorIds = CityHasCollaborator::where('city_id', $city_id)
+            $collaboratorIds = CityHasCollaborator::whereIn('city_id', $city_ids)
                 ->pluck('collaborator_id');
 
             $collaborators_data = Collaborator::whereIn('id', $collaboratorIds)
@@ -103,7 +103,7 @@ class AcordoValorExtraController extends Controller
 
                 Log::info($collaborators_data);
         }
-
+        
         return response()->json([
             'success'   => true,
             'data'      =>  $acordos,
