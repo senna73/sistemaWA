@@ -142,7 +142,7 @@ class AnalyticsController extends Controller
 
         if (in_array('null', $selectedClinics)) $headerClinicNames[] = 'Sem Clínica';
 
-        $day15 = $now->copy()->subDays(15);
+        $day7 = $now->copy()->subDays(7);
         $day45 = $now->copy()->subDays(45);
         $day135 = $now->copy()->subDays(135);
         
@@ -165,11 +165,11 @@ class AnalyticsController extends Controller
                 ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day45));
 
         } elseif ($type === 'warning') {
-            $title = "Alerta: Entre 15 e 45 dias sem atividade";
+            $title = "Alerta: Entre 7 e 45 dias sem atividade";
             
-            $query->where('created_at', '<=', $day15) 
+            $query->where('created_at', '<=', $day7) 
                 ->whereHas('dailyRates', fn($q) => $q->where('start', '>=', $day45))
-                ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day15));
+                ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day7));
         }
 
         $results = $query->with(['dailyRates' => fn($q) => $q->latest('start'), 'cities'])->get();

@@ -149,7 +149,7 @@
                                     </a>
                                     <a href="{{ route('analytics.pdf', array_merge($currentFilters, ['type' => 'warning'])) }}" 
                                        class="btn btn-outline-light px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2">
-                                        Alerta (15-45 dias)
+                                        Alerta (7-45 dias)
                                     </a>
                                 </div>
                             </div>
