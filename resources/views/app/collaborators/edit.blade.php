@@ -15,6 +15,11 @@
                         <input type="text" class="form-control mobile" id="mobile" name="mobile" placeholder="(00) 00000-0000" value="{{ $collaborator?->mobile ?? ''}}" />
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="basic-default-fullname">Grupo</label>
+                        <input type="text" class="form-control" id="group" name="group" placeholder="Grupo do qual pertence" value="{{ $collaborator?->group ?? ''}}" />
+                    </div>
+
+                    <div class="mb-3">
                         <label class="form-label" for="basic-default-fullname">Documento</label>
                         <input type="text" class="form-control cpf" id="basic-default-fullname" name="document" placeholder="000.000.000-00" value="{{ $collaborator?->document ?? ''}}" />
                     </div>
@@ -63,8 +68,9 @@
                         <label class="form-label" for="basic-default-fullname">Cidade</label>
                         <input type="text" class="form-control" id="city" name="city" placeholder="A cidade em que o colaborador se encontra" value="{{ $collaborator?->city ?? ''}}" />
                     </div>
+
                     <div>
-                        <label class="form-label" for="cities_can_work">Cidades</label>
+                        <label class="form-label" for="cities_can_work">Cidades em que trabalha</label>
                         <select multiple name="cities_can_work[]" id="cities_can_work" class="form-control">
                             @foreach($cities as $city)
                                 <option value="{{ $city->id }}"

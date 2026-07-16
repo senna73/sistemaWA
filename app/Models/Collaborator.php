@@ -22,6 +22,8 @@ class Collaborator extends Model
         'city',
         'intermittent_contract',
         'mobile',
+        'group',
+        
         'examined_medical_clinic_id',
     ];
 

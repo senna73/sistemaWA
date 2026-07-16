@@ -98,17 +98,18 @@ class CollaboratorsController extends Controller
             }
 
             $collaborator = Collaborator::create([
-                'name' => $request->name,
-                'document' => Number::onlyNumber($request->document),
-                'pix_key' => $request->pix_key,
-                'observation' => $request->observation,
-                'is_leader' => $request->is_leader == 'on'? 1 :  0,
-                'is_supervisor' => $request->is_supervisor == 'on'? 1 :  0,
-                'is_extra' => $request->is_extra == 'on'? 1 :  0,
-                'intermittent_contract' => $request->intermittent_contract == 'on'? 1 : 0,
-                'city' => $request->city,
-                'mobile' => $request->mobile,
-                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
+                'name'                          => $request->name,
+                'document'                      => Number::onlyNumber($request->document),
+                'pix_key'                       => $request->pix_key,
+                'observation'                   => $request->observation,
+                'is_leader'                     => $request->is_leader == 'on'? 1 :  0,
+                'is_supervisor'                 => $request->is_supervisor == 'on'? 1 :  0,
+                'is_extra'                      => $request->is_extra == 'on'? 1 :  0,
+                'intermittent_contract'         => $request->intermittent_contract == 'on'? 1 : 0,
+                'city'                          => $request->city,
+                'mobile'                        => $request->mobile,
+                'group'                         => $request->group,
+                'examined_medical_clinic_id'    => $request->medical_clinic_id ?: null,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
@@ -176,6 +177,7 @@ class CollaboratorsController extends Controller
             ]);
         }
     }
+    
     /**
      * Update the specified resource in storage.
      */
@@ -207,17 +209,18 @@ class CollaboratorsController extends Controller
 
             $collaborator = Collaborator::findOrFail($id);
             $collaborator->update([
-                'name' => $request->name,
-                'document' => Number::onlyNumber($request->document),
-                'pix_key' => $request->pix_key,
-                'observation' => $request->observation,
-                'is_leader' => $request->has('is_leader') ? 1 : 0,
-                'is_supervisor' => $request->has('is_supervisor') ? 1 : 0,
-                'is_extra' => $request->has('is_extra') ? 1 : 0,
-                'intermittent_contract' => $request->has('intermittent_contract') ? 1 : 0,
-                'city' => $request->city,
-                'mobile' => $request->mobile,
-                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
+                'name'                          => $request->name,
+                'document'                      => Number::onlyNumber($request->document),
+                'pix_key'                       => $request->pix_key,
+                'observation'                   => $request->observation,
+                'is_leader'                     => $request->has('is_leader') ? 1 : 0,
+                'is_supervisor'                 => $request->has('is_supervisor') ? 1 : 0,
+                'is_extra'                      => $request->has('is_extra') ? 1 : 0,
+                'intermittent_contract'         => $request->has('intermittent_contract') ? 1 : 0,
+                'city'                          => $request->city,
+                'mobile'                        => $request->mobile,
+                'group'                         => $request->group,
+                'examined_medical_clinic_id'    => $request->medical_clinic_id ?: null,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
