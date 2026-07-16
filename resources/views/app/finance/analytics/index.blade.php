@@ -7,16 +7,30 @@
         <div class="container">
             
             <div class="row align-items-end mb-5">
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <p class="text-primary fw-bold text-uppercase small mb-1" style="letter-spacing: 1px;">Financeiro</p>
                     <h2 class="fw-black text-dark m-0">Performance & Analytics</h2>
                 </div>
                 
-                <div class="col-md-8 mt-4 mt-md-0">
+                <div class="col-md-9 mt-4 mt-md-0">
                     <form id="filterForm" method="GET" action="{{ route('analytics.index') }}" class="row g-2 align-items-end justify-content-md-end">
                         <input type="hidden" name="months" value="{{ request('months', 1) }}">
                         
-                        <div class="col-md-5 col-sm-6">
+                        <div class="col-md-3 col-sm-6">
+                            <label class="small fw-bold text-muted mb-1">Filtrar por Grupo</label>
+                            <select name="group_ids[]" id="groupSelect" class="form-select select2" multiple>
+                                <option value="null" {{ in_array('null', (array)request('group_ids')) ? 'selected' : '' }}>
+                                    (Sem grupo registrado)
+                                </option>
+                                @foreach($groups as $group)
+                                    <option value="{{ $group }}" {{ in_array($group, (array)request('group_ids')) ? 'selected' : '' }}>
+                                        {{ $group }}
+                                    </option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 col-sm-6">
                             <label class="small fw-bold text-muted mb-1">Filtrar por Clínicas</label>
                             <select name="medical_clinics[]" id="medicalClinicSelected" class="form-select select2" multiple>
                                 <option value="null" {{ in_array('null', (array)request('medical_clinics')) ? 'selected' : '' }}>
@@ -30,7 +44,7 @@
                             </select>
                         </div>
 
-                        <div class="col-md-5 col-sm-6">
+                        <div class="col-md-3 col-sm-6">
                             <label class="small fw-bold text-muted mb-1">Filtrar por Cidades</label>
                             <select name="city_ids[]" id="citySelect" class="form-select select2" multiple>
                                 <option value="null" {{ in_array('null', (array)request('city_ids')) ? 'selected' : '' }}>
@@ -129,7 +143,7 @@
                                     @php $currentFilters = request()->all(); @endphp
                                     
                                     <a href="{{ route('analytics.ativos.pdf', $currentFilters) }}" 
-                                       class="btn btn-success px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2 border-0 shadow-sm">
+                                        class="btn btn-success px-3 py-2 rounded-3 fw-semibold btn-sm d-flex align-items-center justify-content-center gap-2 border-0 shadow-sm">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-check" viewBox="0 0 16 16">
                                             <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5z"/>
                                             <path d="M10.854 7.854a.5.5 0 0 0-.708-.708L7.5 9.793 6.354 8.646a.5.5 0 1 0-.708.708l1.5 1.5a.5.5 0 0 0 .708 0z"/>
@@ -157,7 +171,6 @@
                     </div>
                 </div>
             </div>
-
         </div>
     </div>
 
@@ -173,6 +186,13 @@
 
     <script>
         $(document).ready(function() {
+            // Inicializa Select2 para Grupos
+            $('#groupSelect').select2({
+                theme: 'bootstrap-5',
+                placeholder: 'Selecione os grupos',
+                allowClear: true
+            });
+
             // Inicializa Select2 para Cidades
             $('#citySelect').select2({
                 theme: 'bootstrap-5',

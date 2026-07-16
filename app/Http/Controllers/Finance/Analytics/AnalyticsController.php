@@ -53,12 +53,38 @@ class AnalyticsController extends Controller
         }
         return $query;
     }
+    
+    protected function applyGroupFilter($query, $selectedGroups)
+    {
+        if (empty($selectedGroups)) {
+            return;
+        }
+
+        $query->where(function ($q) use ($selectedGroups) {
+            if (in_array('null', $selectedGroups)) {
+                $q->whereNull('group')
+                ->orWhere('group', '')
+                ->orWhereIn('group', array_filter($selectedGroups, fn($v) => $v !== 'null'));
+            } else {
+                $q->whereIn('group', $selectedGroups);
+            }
+        });
+    }
 
     public function index(Request $request)
     {
+        $groups = Collaborator::where('active', true)
+                    ->whereNotNull('group')
+                    ->where('group', '!=', '')
+                    ->select('group')
+                    ->groupBy('group')
+                    ->orderBy('group')
+                    ->pluck('group');
         $cities = City::where('active', true)->orderBy('name')->get();
+
         $selectedCities = $request->get('city_ids', []);
         $selectedClinics = $request->get('medical_clinics', []);
+        $selectedGroups = $request->get('groups', []);
 
         $campoData = 'start'; 
         $campoValor = 'pay_amount';
@@ -68,6 +94,7 @@ class AnalyticsController extends Controller
         $baseQuery = Collaborator::where('active', true);
         $this->applyCityFilter($baseQuery, $selectedCities);
         $this->applyClinicFilter($baseQuery, $selectedClinics);
+        $this->applyGroupFilter($baseQuery, $selectedGroups); 
         $totalCollaborators = $baseQuery->count();
 
         $months = (int) $request->get('months', 1);
@@ -88,10 +115,11 @@ class AnalyticsController extends Controller
             if ($currentDay->isFuture()) continue;
 
             $dayActive = DailyRate::whereDate('start', $currentDay->toDateString())
-                ->whereHas('collaborator', function($q) use ($selectedCities, $selectedClinics) {
+                ->whereHas('collaborator', function($q) use ($selectedCities, $selectedClinics, $selectedGroups) {
                     $q->where('active', true);
                     $this->applyCityFilter($q, $selectedCities);
                     $this->applyClinicFilter($q, $selectedClinics);
+                    $this->applyGroupFilter($q, $selectedGroups);
                 })
                 ->distinct('collaborator_id')
                 ->count('collaborator_id');
@@ -103,8 +131,9 @@ class AnalyticsController extends Controller
 
         $limitDate = now()->subDays(45);
         $recentWorkedIds = DailyRate::where('start', '>=', $limitDate)
-            ->whereHas('collaborator', function($q) use ($selectedCities) {
+            ->whereHas('collaborator', function($q) use ($selectedCities, $selectedGroups) {
                 $this->applyCityFilter($q, $selectedCities);
+                $this->applyGroupFilter($q, $selectedGroups);
             })
             ->distinct()->pluck('collaborator_id');
 
@@ -115,7 +144,7 @@ class AnalyticsController extends Controller
 
         $clinics = MedicalClinic::getActive();
         return view('app.finance.analytics.index', compact(
-                    'cities', 'clinics', 'selectedCities', 'selectedClinics', 'chartLabels', 'chartActive', 'chartInactive',
+                    'cities', 'groups', 'clinics', 'selectedCities', 'selectedClinics', 'chartLabels', 'chartActive', 'chartInactive',
                     'months', 'totalCollaborators', 'countAtivos45', 'percentAtivos45',
                     'countInativos45', 'percentInativos45', 'start', 'end'
                 ));
@@ -128,6 +157,7 @@ class AnalyticsController extends Controller
         $type = $request->get('type', 'long_term');
         $selectedCities = $request->get('city_ids', []);
         $selectedClinics = $request->get('medical_clinics', []);
+        $selectedGroups = $request->get('group_ids', []); 
         $now = now();
         
         $headerCityNames = !empty($selectedCities) 
@@ -135,7 +165,13 @@ class AnalyticsController extends Controller
             : ['Todas as cidades'];
 
         if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
+        
+        $headerGroupNames = !empty($selectedGroups)
+            ? array_filter($selectedGroups, fn($v) => $v !== 'null')
+            : ['Todos os grupos'];
 
+        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem Grupo';
+        
         $headerClinicNames = !empty($selectedClinics)
             ? MedicalClinic::whereIn('id', array_filter($selectedClinics, fn($v) => $v !== 'null'))->pluck('name')->toArray()
             : ['Todas as clínicas'];
@@ -150,6 +186,7 @@ class AnalyticsController extends Controller
 
         $this->applyCityFilter($query, $selectedCities);
         $this->applyClinicFilter($query, $selectedClinics);
+        $this->applyGroupFilter($query, $selectedGroups);
 
         if ($type === 'long_term') {
             $title = "Inativos há mais de 45 dias";
@@ -172,39 +209,40 @@ class AnalyticsController extends Controller
                 ->whereDoesntHave('dailyRates', fn($q) => $q->where('start', '>=', $day7));
         }
 
-        $results = $query->with(['dailyRates' => fn($q) => $q->latest('start'), 'cities'])->get();
-
-        $headerCityNames = !empty($selectedCities) 
-            ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
-            : ['Todas as cidades'];
+        $results = $query->with(['dailyRates' => fn($q) => $q->latest('start'), 'cities'])
+                    ->limit(500)
+                    ->get();
         
-        if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
-
         $data = $results->map(function ($collab) use ($now) {
                 $lastWork = $collab->dailyRates->first();
                 $rawDays = $lastWork ? $lastWork->start->diffInDays($now) : -1;
 
                 return [
-                    'name'           => $collab->name,
-                    'mobile'         => $collab->mobile ?: 'Sem número cadastrado',
-                    'city'           => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
-                    'created_at_fmt' => $collab->created_at->format('d/m/Y'), 
-                    'last_date'      => $lastWork ? $lastWork->start->format('d/m/Y') : 'Sem registro',
-                    'days_count'     => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
-                    'raw_days'       => $rawDays
+                    'name'            => $collab->name,
+                    'group'           => $collab->group ?: 'Sem Grupo', // Acessa o atributo string diretamente
+                    'mobile'          => $collab->mobile ?: 'Sem número',
+                    'city'            => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
+                    'created_at_fmt'  => $collab->created_at->format('d/m/Y'), 
+                    'created_at_raw'  => $collab->created_at,
+                    'last_date'       => $lastWork ? $lastWork->start->format('d/m/Y') : 'Sem registro',
+                    'days_count'      => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
+                    'raw_days'        => $rawDays
                 ];
             })->sortBy([
-                    ['raw_days', 'asc'], 
-                    ['created_at_raw', 'asc']
-                ]);
+                ['raw_days', 'asc'], 
+                ['created_at_raw', 'asc']
+            ]);
+
         $html = View::make('app.finance.analytics.inactiveCollaborators', [
                 'title'        => $title,
                 'filterCity'   => implode(', ', $headerCityNames),
                 'filterClinic' => implode(', ', $headerClinicNames),
+                'filterGroup'  => implode(', ', $headerGroupNames),
                 'data'         => $data,
                 'date'         => $now->format('d/m/Y H:i'),
                 'user'         => Auth::user()
             ])->render();
+
         if (ob_get_length()) ob_end_clean();
         while (ob_get_level()) {
             ob_end_clean();
@@ -222,6 +260,7 @@ class AnalyticsController extends Controller
         ini_set('memory_limit', '512M');
         
         $selectedCities = $request->get('city_ids', []);
+        $selectedGroups = $request->get('groups', []);
         $months = (int) $request->get('months', 1);
         $now = now();
 
@@ -238,8 +277,14 @@ class AnalyticsController extends Controller
             : ['Todas as cidades'];
         if (in_array('null', $selectedCities)) $headerCityNames[] = 'Sem Cidade';
 
+        $headerGroupNames = !empty($selectedGroups)
+            ? array_filter($selectedGroups, fn($v) => $v !== 'null')
+            : ['Todos os grupos'];
+        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem Grupo';
+
         $query = Collaborator::where('active', true);
         $this->applyCityFilter($query, $selectedCities);
+        $this->applyGroupFilter($query, $selectedGroups);
 
         $query->whereHas('dailyRates', function($q) use ($startDate) {
             $q->where('start', '>=', $startDate);
@@ -256,6 +301,7 @@ class AnalyticsController extends Controller
                 'name'              => $collab->name,
                 'mobile'            => $collab->mobile ?: 'Sem número cadastrado',
                 'city'              => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
+                'group'             => $collab->group ?: 'Sem Grupo',
                 'created_at_fmt'    => $collab->created_at ? $collab->created_at->format('d/m/Y') : 'N/D', 
                 'daily_rates_count' => $collab->daily_rates_count
             ];
@@ -264,6 +310,7 @@ class AnalyticsController extends Controller
         $html = View::make('app.finance.analytics.activeCollaborators', [
             'title'      => $title,
             'filterCity' => implode(', ', $headerCityNames),
+            'filterGroup' => implode(', ', $headerGroupNames),
             'data'       => $data,
             'date'       => $now->format('d/m/Y H:i'),
             'user'       => Auth::user()

@@ -21,6 +21,7 @@
         <div class="title">{{ $title }}</div>
         <div class="meta">
             <strong>Unidades:</strong> {{ $filterCity }} <br>
+            <strong>Grupo(s):</strong> {{ $filterGroup }} <br>
             <strong>Gerado em:</strong> {{ $date }} por {{ $user ? $user->name : 'Sistema' }}
         </div>
     </div>
@@ -29,6 +30,7 @@
         <thead>
             <tr>
                 <th>Colaborador</th>
+                <th>Grupo</th>
                 <th>Celular</th>
                 <th>Cidade(s)</th>
                 <th>Data Cadastro</th>
@@ -39,6 +41,7 @@
             @forelse($data as $row)
                 <tr>
                     <td><strong>{{ $row['name'] }}</strong></td>
+                    <td>{{ $row['group'] }}</td>
                     <td>{{ $row['mobile'] }}</td>
                     <td>{{ $row['city'] }}</td>
                     <td>{{ $row['created_at_fmt'] }}</td>
@@ -46,7 +49,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 20px; color: #888;">
+                    <td colspan="6" style="text-align: center; padding: 20px; color: #888;">
                         Nenhum colaborador com atividade registrada neste período.
                     </td>
                 </tr>
