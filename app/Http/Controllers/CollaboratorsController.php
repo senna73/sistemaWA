@@ -34,10 +34,15 @@ class CollaboratorsController extends Controller
     {
         $cities = City::all();
         $available_clinics = MedicalClinic::getActive();
-
+        $groups = Collaborator::whereNotNull('group')
+                ->where('group', '!=', '')
+                ->groupBy('group')
+                ->pluck('group')
+                ->toArray();
         return View('app.collaborators.edit', [
                 'cities'            => $cities,
                 'available_clinics' => $available_clinics,
+                'groups'            => $groups,
             ]);
     }
 
@@ -154,14 +159,18 @@ class CollaboratorsController extends Controller
         $cities = City::all();
 
         $available_clinics = MedicalClinic::getActive();
-
-
-        
+        $groups = Collaborator::whereNotNull('group')
+                ->where('group', '!=', '')
+                ->groupBy('group')
+                ->pluck('group')
+                ->toArray();
+                
         return view('app.collaborators.edit', [
             'collaborator'      => $collaborator,
             'cities'            => $cities,
             'selectedCities'    => $selectedCities,
             'available_clinics' => $available_clinics,
+            'groups'            => $groups,
         ]);
     }
 

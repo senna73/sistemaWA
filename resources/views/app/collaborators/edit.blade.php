@@ -14,9 +14,22 @@
                         <label class="form-label" for="mobile">Celular</label>
                         <input type="text" class="form-control mobile" id="mobile" name="mobile" placeholder="(00) 00000-0000" value="{{ $collaborator?->mobile ?? ''}}" />
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label" for="basic-default-fullname">Grupo</label>
-                        <input type="text" class="form-control" id="group" name="group" placeholder="Grupo do qual pertence" value="{{ $collaborator?->group ?? ''}}" />
+                        <label class="form-label" for="group">Grupo</label>
+                        <select class="form-control select2-tags" id="group" name="group">
+                            <option value="">Selecione ou digite um grupo</option>
+                            @foreach($groups as $groupOption)
+                                <option value="{{ $groupOption }}" 
+                                    {{ (old('group', $collaborator?->group ?? '') == $groupOption) ? 'selected' : '' }}>
+                                    {{ $groupOption }}
+                                </option>
+                            @endforeach
+                            
+                            @if(!empty($collaborator?->group) && !in_array($collaborator->group, $groups))
+                                <option value="{{ $collaborator->group }}" selected>{{ $collaborator->group }}</option>
+                            @endif
+                        </select>
                     </div>
 
                     <div class="mb-3">
@@ -109,6 +122,24 @@
                 placeholder: "Selecione a(s) cidade(s) em que Trabalha",
                 allowClear: true
             });
+        $('.select2-tags').select2({
+            tags: true,
+            placeholder: "Selecione ou digite um grupo",
+            allowClear: true,
+            createTag: function (params) {
+                var term = $.trim(params.term);
+
+                if (term === '') {
+                    return null;
+                }
+
+                return {
+                    id: term,
+                    text: term,
+                    newTag: true
+                }
+            }
+        });
     });
 
     function post() {
