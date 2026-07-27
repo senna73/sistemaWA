@@ -11,11 +11,10 @@ use App\Models\MedicalClinic;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
-
-use function Laravel\Prompts\select;
 
 class CollaboratorsController extends Controller
 {
@@ -39,11 +38,12 @@ class CollaboratorsController extends Controller
                 ->groupBy('group')
                 ->pluck('group')
                 ->toArray();
+
         return View('app.collaborators.edit', [
-                'cities'            => $cities,
-                'available_clinics' => $available_clinics,
-                'groups'            => $groups,
-            ]);
+            'cities'            => $cities,
+            'available_clinics' => $available_clinics,
+            'groups'            => $groups,
+        ]);
     }
 
     public function table(Request $request){
@@ -67,7 +67,7 @@ class CollaboratorsController extends Controller
                     </div>
                 ';
             })
-            ->rawColumns(['actions']) // Permite renderizar HTML no DataTables
+            ->rawColumns(['actions'])
             ->make(true);
     }
 
@@ -76,24 +76,24 @@ class CollaboratorsController extends Controller
      */
     public function store(Request $request)
     {
-
         try {
             DB::beginTransaction();
 
             $validator = Validator::make($request->all(), [
-                'name' => ['required', 'string', 'max:255'],
-                'document' => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
-                'pix_key' => ['required'],
+                'name'              => ['required', 'string', 'max:255'],
+                'document'          => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
+                'pix_key'           => ['required'],
                 'medical_clinic_id' => ['nullable', 'exists:medical_clinics,id'],
-
+                'leave_end_date'    => ['nullable', 'date_format:d/m/Y'],
             ], [
-                'name.required' => 'O campo nome é obrigatório.',
-                'name.string' => 'O nome deve ser um texto válido.',
-                'name.max' => 'O nome não pode ter mais de 255 caracteres.',
-                'document.required' => 'CPF é obrigatório.',
-                'document.regex' => 'O CPF deve estar no formato correto (000.000.000-00).',
-                'pix_key.required' => 'O campo Chave Pix é obrigatório.',
-                'medical_clinic_id.exists' => 'A clínica médica selecionada é inválida.',
+                'name.required'               => 'O campo nome é obrigatório.',
+                'name.string'                 => 'O nome deve ser um texto válido.',
+                'name.max'                    => 'O nome não pode ter mais de 255 caracteres.',
+                'document.required'           => 'CPF é obrigatório.',
+                'document.regex'              => 'O CPF deve estar no formato correto (000.000.000-00).',
+                'pix_key.required'            => 'O campo Chave Pix é obrigatório.',
+                'medical_clinic_id.exists'    => 'A clínica médica selecionada é inválida.',
+                'leave_end_date.date_format' => 'A data de fim da licença/afastamento deve ser uma data válida no formato DD/MM/AAAA.',
             ]);
 
             if ($validator->fails()) {
@@ -102,42 +102,50 @@ class CollaboratorsController extends Controller
                 ], 422);
             }
 
+            $leaveEndDate = null;
+            if ($request->filled('leave_end_date')) {
+                try {
+                    $leaveEndDate = Carbon::createFromFormat('d/m/Y', $request->leave_end_date)->format('Y-m-d');
+                } catch (\Exception $e) {
+                    $leaveEndDate = Carbon::parse($request->leave_end_date)->format('Y-m-d');
+                }
+            }
+
             $collaborator = Collaborator::create([
-                'name'                          => $request->name,
-                'document'                      => Number::onlyNumber($request->document),
-                'pix_key'                       => $request->pix_key,
-                'observation'                   => $request->observation,
-                'is_leader'                     => $request->is_leader == 'on'? 1 :  0,
-                'is_supervisor'                 => $request->is_supervisor == 'on'? 1 :  0,
-                'is_extra'                      => $request->is_extra == 'on'? 1 :  0,
-                'intermittent_contract'         => $request->intermittent_contract == 'on'? 1 : 0,
-                'city'                          => $request->city,
-                'mobile'                        => $request->mobile,
-                'group'                         => $request->group,
-                'examined_medical_clinic_id'    => $request->medical_clinic_id ?: null,
+                'name'                       => $request->name,
+                'document'                   => Number::onlyNumber($request->document),
+                'pix_key'                    => $request->pix_key,
+                'observation'                => $request->observation,
+                'is_leader'                  => $request->has('is_leader') ? 1 : 0,
+                'is_supervisor'              => $request->has('is_supervisor') ? 1 : 0,
+                'is_extra'                   => $request->has('is_extra') ? 1 : 0,
+                'intermittent_contract'      => $request->has('intermittent_contract') ? 1 : 0,
+                'city'                       => $request->city,
+                'mobile'                     => $request->mobile,
+                'group'                      => $request->group,
+                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
+                'leave_end_date'             => $leaveEndDate,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
             DB::commit();
 
             return response()->json([
-                'title' => 'Sucesso!',
+                'title'   => 'Sucesso!',
                 'message' => 'Colaborador cadastrado com sucesso!',
-                'type' => 'success'
+                'type'    => 'success'
             ], 201);
 
         } catch(Exception $exception) {
-
             DB::rollBack();
 
             return response()->json([
-                'title' => 'Erro na validação',
+                'title'   => 'Erro na validação',
                 'message' => $exception->getMessage(),
-                'type' => 'error'
+                'type'    => 'error'
             ], 500);
         }
     }
-
     /**
      * Display the specified resource.
      */
@@ -181,8 +189,8 @@ class CollaboratorsController extends Controller
         foreach ($cities as $city) {
             CityHasCollaborator::create([
                 'collaborator_id' => $collaborator->id,
-                'city_id' => $city,
-                'active' => true,
+                'city_id'         => $city,
+                'active'          => true,
             ]);
         }
     }
@@ -196,18 +204,20 @@ class CollaboratorsController extends Controller
             DB::beginTransaction();
 
             $validator = Validator::make($request->all(), [
-                'name' => ['required', 'string', 'max:255'],
-                'document' => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
-                'pix_key' => ['required'],
-                'medical_clinic_id' => ['nullable', 'exists:medical_clinics,id'],
+                'name'                     => ['required', 'string', 'max:255'],
+                'document'                 => ['required', 'regex:/^\d{3}\.\d{3}\.\d{3}-\d{2}$/'],
+                'pix_key'                  => ['required'],
+                'medical_clinic_id'        => ['nullable', 'exists:medical_clinics,id'],
+                'leave_end_date'           => ['nullable', 'date_format:d/m/Y'],
             ], [
-                'name.required' => 'O campo nome é obrigatório.',
-                'name.string' => 'O nome deve ser um texto válido.',
-                'name.max' => 'O nome não pode ter mais de 255 caracteres.',
-                'document.required' => 'CPF é obrigatório.',
-                'document.regex' => 'O CPF deve estar no formato correto (000.000.000-00).',
-                'pix_key.required' => 'O campo Chave Pix é obrigatório.',
+                'name.required'            => 'O campo nome é obrigatório.',
+                'name.string'              => 'O nome deve ser um texto válido.',
+                'name.max'                 => 'O nome não pode ter mais de 255 caracteres.',
+                'document.required'        => 'CPF é obrigatório.',
+                'document.regex'           => 'O CPF deve estar no formato correto (000.000.000-00).',
+                'pix_key.required'         => 'O campo Chave Pix é obrigatório.',
                 'medical_clinic_id.exists' => 'A clínica médica selecionada é inválida.',
+                'leave_end_date.date'      => 'A data de fim da licença/afastamento deve ser uma data válida.',
             ]);
 
             if ($validator->fails()) {
@@ -216,39 +226,50 @@ class CollaboratorsController extends Controller
                 ], 422);
             }
 
+            $leaveEndDate = null;
+            if ($request->filled('leave_end_date')) {
+                try {
+                    $leaveEndDate = Carbon::createFromFormat('d/m/Y', $request->leave_end_date)->format('Y-m-d');
+                } catch (\Exception $e) {
+                    $leaveEndDate = Carbon::parse($request->leave_end_date)->format('Y-m-d');
+                }
+            }
+
+
             $collaborator = Collaborator::findOrFail($id);
+            
             $collaborator->update([
-                'name'                          => $request->name,
-                'document'                      => Number::onlyNumber($request->document),
-                'pix_key'                       => $request->pix_key,
-                'observation'                   => $request->observation,
-                'is_leader'                     => $request->has('is_leader') ? 1 : 0,
-                'is_supervisor'                 => $request->has('is_supervisor') ? 1 : 0,
-                'is_extra'                      => $request->has('is_extra') ? 1 : 0,
-                'intermittent_contract'         => $request->has('intermittent_contract') ? 1 : 0,
-                'city'                          => $request->city,
-                'mobile'                        => $request->mobile,
-                'group'                         => $request->group,
-                'examined_medical_clinic_id'    => $request->medical_clinic_id ?: null,
+                'name'                       => $request->name,
+                'document'                   => Number::onlyNumber($request->document),
+                'pix_key'                    => $request->pix_key,
+                'observation'                => $request->observation,
+                'is_leader'                  => $request->has('is_leader') ? 1 : 0,
+                'is_supervisor'              => $request->has('is_supervisor') ? 1 : 0,
+                'is_extra'                   => $request->has('is_extra') ? 1 : 0,
+                'intermittent_contract'      => $request->has('intermittent_contract') ? 1 : 0,
+                'city'                       => $request->city,
+                'mobile'                     => $request->mobile,
+                'group'                      => $request->group,
+                'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
+                'leave_end_date'             => $leaveEndDate,
             ]);
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
             DB::commit();
 
             return response()->json([
-                'title' => 'Sucesso!',
+                'title'   => 'Sucesso!',
                 'message' => 'Colaborador atualizado com sucesso!',
-                'type' => 'success'
+                'type'    => 'success'
             ], 200);
 
         } catch(Exception $exception) {
-
             DB::rollBack();
 
             return response()->json([
-                'title' => 'Erro na validação',
+                'title'   => 'Erro na validação',
                 'message' => $exception->getMessage(),
-                'type' => 'error'
+                'type'    => 'error'
             ], 500);
         }
     }
@@ -259,7 +280,6 @@ class CollaboratorsController extends Controller
     public function destroy(string $id)
     {
         try {
-
             DB::beginTransaction();
 
             $user = Collaborator::find($id);
@@ -270,17 +290,16 @@ class CollaboratorsController extends Controller
 
             return response()->json([
                 'message' => 'Colaborador removido com sucesso!',
-                'data' => $user
+                'data'    => $user
             ], 201);
 
         } catch(Exception $exception) {
-
             DB::rollBack();
 
             return response()->json([
-                'title' => 'Erro na validação',
+                'title'   => 'Erro na validação',
                 'message' => $exception->getMessage(),
-                'type' => 'error'
+                'type'    => 'error'
             ], 500);
         }
     }
@@ -289,6 +308,4 @@ class CollaboratorsController extends Controller
         $collaborator = Collaborator::query()->where('id', '=', $id)->first();
         return $collaborator?->pix_key ?? "";
     }
-
-
 }

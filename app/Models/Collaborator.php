@@ -23,10 +23,15 @@ class Collaborator extends Model
         'intermittent_contract',
         'mobile',
         'group',
+        'leave_end_date',
         
         'examined_medical_clinic_id',
     ];
 
+    protected $casts = [
+        'leave_end_date' => 'date',
+    ];
+    
     public static function getActive()
     {
         return self::query()->where('active', '=', true)->get();

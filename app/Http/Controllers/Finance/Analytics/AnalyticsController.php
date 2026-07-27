@@ -149,7 +149,6 @@ class AnalyticsController extends Controller
                     'countInativos45', 'percentInativos45', 'start', 'end'
                 ));
     }
-
     public function exportPdf(Request $request)
     {
         ini_set('memory_limit', '512M');
@@ -159,6 +158,7 @@ class AnalyticsController extends Controller
         $selectedClinics = $request->get('medical_clinics', []);
         $selectedGroups = $request->get('group_ids', []); 
         $now = now();
+        $today = $now->copy()->startOfDay();
         
         $headerCityNames = !empty($selectedCities) 
             ? City::whereIn('id', array_filter($selectedCities, fn($v) => $v !== 'null'))->pluck('name')->toArray() 
@@ -213,20 +213,36 @@ class AnalyticsController extends Controller
                     ->limit(500)
                     ->get();
         
-        $data = $results->map(function ($collab) use ($now) {
+        $data = $results->map(function ($collab) use ($now, $today) {
                 $lastWork = $collab->dailyRates->first();
                 $rawDays = $lastWork ? $lastWork->start->diffInDays($now) : -1;
 
+                $leaveEndDate = $collab->leave_end_date ? \Carbon\Carbon::parse($collab->leave_end_date)->startOfDay() : null;
+                $leaveStatus = 'normal';
+
+                if ($leaveEndDate) {
+                    if ($leaveEndDate->gt($today)) {
+                        $leaveStatus = 'future';
+                    } else {
+                        $daysPassed = $leaveEndDate->diffInDays($today);
+                        if ($daysPassed <= 15) {
+                            $leaveStatus = 'recent_expired';
+                        }
+                    }
+                }
+
                 return [
-                    'name'            => $collab->name,
-                    'group'           => $collab->group ?: 'Sem Grupo', // Acessa o atributo string diretamente
-                    'mobile'          => $collab->mobile ?: 'Sem número',
-                    'city'            => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
-                    'created_at_fmt'  => $collab->created_at->format('d/m/Y'), 
-                    'created_at_raw'  => $collab->created_at,
-                    'last_date'       => $lastWork ? $lastWork->start->format('d/m/Y') : 'Sem registro',
-                    'days_count'      => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
-                    'raw_days'        => $rawDays
+                    'name'               => $collab->name,
+                    'group'              => $collab->group ?: 'Sem Grupo',
+                    'mobile'             => $collab->mobile ?: 'Sem número',
+                    'city'               => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
+                    'created_at_fmt'     => $collab->created_at->format('d/m/Y'), 
+                    'created_at_raw'     => $collab->created_at,
+                    'last_date'          => $lastWork ? $lastWork->start->format('d/m/Y') : 'Sem registro',
+                    'days_count'         => $rawDays === -1 ? 'Inatividade Total' : $rawDays,
+                    'raw_days'           => $rawDays,
+                    'leave_end_date_fmt' => $leaveEndDate ? $leaveEndDate->format('d/m/Y') : '-',
+                    'leave_status'       => $leaveStatus,
                 ];
             })->sortBy([
                 ['raw_days', 'asc'], 

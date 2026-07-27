@@ -14,6 +14,10 @@
                         <label class="form-label" for="mobile">Celular</label>
                         <input type="text" class="form-control mobile" id="mobile" name="mobile" placeholder="(00) 00000-0000" value="{{ $collaborator?->mobile ?? ''}}" />
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="leave_end_date">Afastado até: </label>
+                        <input type="text" class="form-control" id="leave_end_date" name="leave_end_date" placeholder="DD/MM/AAAA" maxlength="10" value="{{ isset($collaborator?->leave_end_date) ? \Carbon\Carbon::parse($collaborator->leave_end_date)->format('d/m/Y') : '' }}">
+                    </div>
 
                     <div class="mb-3">
                         <label class="form-label" for="group">Grupo</label>
@@ -33,8 +37,8 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label" for="basic-default-fullname">Documento</label>
-                        <input type="text" class="form-control cpf" id="basic-default-fullname" name="document" placeholder="000.000.000-00" value="{{ $collaborator?->document ?? ''}}" />
+                        <label class="form-label" for="document">Documento</label>
+                        <input type="text" class="form-control cpf" id="document" name="document" placeholder="000.000.000-00" value="{{ $collaborator?->document ?? ''}}" />
                     </div>
                     <div class="d-flex">
                         <div class="form-check mb-3 me-2">
@@ -43,42 +47,42 @@
                             <label class="form-check-label" for="intermittent_contract">Contrato Intermitente</label>
                         </div>
 
-                        <div class="form-check mb-3  me-2">
+                        <div class="form-check mb-3 me-2">
                             <input class="form-check-input" type="checkbox" id="is_leader" name="is_leader" 
                                 {{ isset($collaborator) && $collaborator?->is_leader == 1 ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_leader">Líder</label>
                         </div>
 
-                        <div class="form-check mb-3  me-2">
+                        <div class="form-check mb-3 me-2">
                             <input class="form-check-input" type="checkbox" id="is_supervisor" name="is_supervisor" 
                                 {{ isset($collaborator) && $collaborator?->is_supervisor == 1 ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_supervisor">Supervisor</label>
                         </div>
 
-                        <div class="form-check mb-3  me-2">
+                        <div class="form-check mb-3 me-2">
                             <input class="form-check-input" type="checkbox" id="is_extra" name="is_extra" 
                                 {{ isset($collaborator) && $collaborator?->is_extra == 1 ? 'checked' : '' }}>
                             <label class="form-check-label" for="is_extra">Recebe Valor Extra</label>
                         </div>
                     </div>
                     <div class="mb-3 mt-3">
-                    <label class="form-label" for="medical_clinic_id">Clínica Médica</label>
-                    <select name="medical_clinic_id" id="medical_clinic_id" class="form-control">
-                        <option value="">Selecione uma clínica (Opcional)</option>
-                        @foreach($available_clinics as $clinic)
-                            <option value="{{ $clinic->id }}"
-                                {{ (isset($collaborator) && $collaborator->examined_medical_clinic_id == $clinic->id) ? 'selected' : '' }}>
-                                {{ $clinic->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </div>
+                        <label class="form-label" for="medical_clinic_id">Clínica Médica</label>
+                        <select name="medical_clinic_id" id="medical_clinic_id" class="form-control">
+                            <option value="">Selecione uma clínica (Opcional)</option>
+                            @foreach($available_clinics as $clinic)
+                                <option value="{{ $clinic->id }}"
+                                    {{ (isset($collaborator) && $collaborator->examined_medical_clinic_id == $clinic->id) ? 'selected' : '' }}>
+                                    {{ $clinic->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
                     <div class="mb-3">
-                        <label class="form-label" for="basic-default-fullname">Chave Pix</label>
+                        <label class="form-label" for="pix_key">Chave Pix</label>
                         <input type="text" class="form-control" id="pix_key" name="pix_key" value="{{ $collaborator?->pix_key ?? ''}}" />
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="basic-default-fullname">Cidade</label>
+                        <label class="form-label" for="city">Cidade</label>
                         <input type="text" class="form-control" id="city" name="city" placeholder="A cidade em que o colaborador se encontra" value="{{ $collaborator?->city ?? ''}}" />
                     </div>
 
@@ -92,14 +96,12 @@
                                 </option>
                             @endforeach
                         </select>
-
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="basic-default-message">Observação</label>
                         <textarea id="basic-default-message" class="form-control" placeholder="Alguma observação?" name="observation">{!! $collaborator?->observation ?? '' !!}</textarea>
                     </div>
                 </form>
-
             </div>
             <div class="card-footer">
                 @if ($collaborator?->id ?? false)
@@ -119,31 +121,32 @@
 <script>
     $(document).ready(function() {
         $('#cities_can_work').select2({
-                placeholder: "Selecione a(s) cidade(s) em que Trabalha",
-                allowClear: true
-            });
+            placeholder: "Selecione a(s) cidade(s) em que Trabalha",
+            allowClear: true
+        });
+
         $('.select2-tags').select2({
             tags: true,
             placeholder: "Selecione ou digite um grupo",
             allowClear: true,
             createTag: function (params) {
                 var term = $.trim(params.term);
-
-                if (term === '') {
-                    return null;
-                }
-
-                return {
-                    id: term,
-                    text: term,
-                    newTag: true
-                }
+                if (term === '') return null;
+                return { id: term, text: term, newTag: true };
             }
         });
+
+        let cpfMask = new Inputmask('999.999.999-99', { placeholder: ' ', clearIncomplete: true });
+        cpfMask.mask('.cpf');
+
+        let mobileMask = new Inputmask('(99) 99999-9999', { placeholder: ' ', clearIncomplete: true });
+        mobileMask.mask('.mobile');
+
+        let dateMask = new Inputmask('99/99/9999', { placeholder: ' ', clearIncomplete: true });
+        dateMask.mask('#leave_end_date');
     });
 
     function post() {
-
         $.ajax({
             url: '{{ route('collaborators.store') }}',
             type: 'POST',
@@ -156,18 +159,17 @@
                     title: response?.title ?? 'Sucesso!',
                     text: response?.message ?? 'Sucesso na ação!',
                     icon: response?.type ?? 'success'
-                }).then((result) => {
+                }).then(() => {
                     $('#form-edit-collaborator')[0].reset();
-
                     window.location.reload();
                 });
             },
             error: function(response) {
-                response = JSON.parse(response.responseText);
+                let res = JSON.parse(response.responseText);
                 Swal.fire({
-                    title: response?.title ?? 'Oops!',
-                    html: response?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
-                    icon: response?.type ?? 'error'
+                    title: res?.title ?? 'Oops!',
+                    html: res?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
+                    icon: res?.type ?? 'error'
                 });
             }
         });
@@ -186,42 +188,19 @@
                     title: response?.title ?? 'Sucesso!',
                     text: response?.message ?? 'Sucesso na ação!',
                     icon: response?.type ?? 'success'
-                }).then((result) => {
+                }).then(() => {
                     $('#form-edit-collaborator')[0].reset();
-
                     window.location.reload();
                 });
             },
             error: function(response) {
-                response = JSON.parse(response.responseText);
+                let res = JSON.parse(response.responseText);
                 Swal.fire({
-                    title: response?.title ?? 'Oops!',
-                    html: response?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
-                    icon: response?.type ?? 'error'
+                    title: res?.title ?? 'Oops!',
+                    html: res?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
+                    icon: res?.type ?? 'error'
                 });
             }
         });
     }
-
-    $(document).ready(function () {
-        let cpfMask = new Inputmask('999.999.999-99', { 
-            placeholder: ' ', 
-            clearIncomplete: true 
-        });
-        cpfMask.mask('.cpf');
-    });
-
-    $(document).ready(function () {
-    let cpfMask = new Inputmask('999.999.999-99', { 
-        placeholder: ' ', 
-        clearIncomplete: true 
-    });
-    cpfMask.mask('.cpf');
-
-    let mobileMask = new Inputmask('(99) 99999-9999', { 
-        placeholder: ' ', 
-        clearIncomplete: true 
-    });
-    mobileMask.mask('.mobile');
-    });
 </script>
