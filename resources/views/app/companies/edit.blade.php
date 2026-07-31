@@ -238,49 +238,6 @@
         setorSelect.options[setorSelect.selectedIndex].remove();
     }
 
-    // function saveSection(sectionId, sectionName, establishmentId) {
-    //     // Extração dos valores dos campos
-    //     let employeePay = document.getElementById(`setores[${sectionId}][diaria]`).value;
-    //     let leaderPay = document.getElementById(`setores[${sectionId}][lider]`).value;
-    //     let comission = document.getElementById(`setores[${sectionId}][comissao]`).value;
-    //     let earned = document.getElementById(`setores[${sectionId}][earned]`).value;
-
-    //     console.log(sectionId);
-    //     // Enviar dados via AJAX
-    //     $.ajax({
-    //         url: '{ route('companyHasSection.storeObject') }}',  // URL da rota
-    //         type: 'POST',
-    //         headers: {
-    //             'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') // Garantir CSRF token
-    //         },
-    //         data: {
-    //             establishment_id: establishmentId,
-    //             section_id: sectionId,
-    //             employee_pay: employeePay,
-    //             leader_pay: leaderPay,
-    //             leaderComission: comission,
-    //             earned: earned
-    //         },
-    //         success: function(response) {
-    //             Swal.fire({
-    //                 title: response?.title ?? 'Sucesso!',
-    //                 text: response?.message ?? 'Sucesso na ação!',
-    //                 icon: response?.type ?? 'success'
-    //             }).then((result) => {
-    //                 //window.location.reload();
-    //             });
-    //         },
-    //         error: function(response) {
-    //             response = JSON.parse(response.responseText); // Captura o erro
-    //             Swal.fire({
-    //                 title: response?.title ?? 'Oops!',
-    //                 html: response?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
-    //                 icon: response?.type ?? 'error'
-    //             });
-    //         }
-    //     });
-    // }
-
     function removeSection(sectionId, sectionName, establishmentID) {
 
 

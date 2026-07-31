@@ -15,72 +15,92 @@ use Mpdf\Mpdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ReportsController extends Controller
 {
-    
+        
     public function registers(Request $request)
     {
         $user = Auth::user();
-        
-        $dailyRate = DailyRate::query()
-        ->leftJoin('collaborators', 'collaborators.id', '=', 'daily_rate.collaborator_id')
-        ->leftJoin('companies', 'companies.id', '=', 'daily_rate.company_id')
-        ->leftJoin('sections', 'sections.id', '=', 'daily_rate.section_id')
-        ->where('daily_rate.active', true)
-        ->orderBy('daily_rate.company_id')
-        ->orderBy('daily_rate.section_id')
-        ->orderBy('daily_rate.start')
-        ->select([
-            'daily_rate.collaborator_id as collaborator_id',
-            'daily_rate.company_id as company_id',
-            'daily_rate.section_id as section_id',
-            'collaborators.name as collaborators_name',
-            'companies.name as company_name',
-            'sections.name as section_name',
-            'daily_rate.start as start',
-            'daily_rate.end as end',
-            'daily_rate.total_time as total_time',
-            'daily_rate.pay_amount as pay_amount',
-            'collaborators.pix_key as pix_key'
-        ]);
-        if ($request->collaborator_id) {
-            $dailyRate->whereIn('daily_rate.collaborator_id', $request->collaborator_id);
-        }
-        
-        if ($request->company_id) {
-            $dailyRate->whereIn('daily_rate.company_id', $request->company_id);
-        }
-        
-        if ($request->start) {
-            $dailyRate->where('daily_rate.start', '>=', $request->start);
+
+        $dailyRateQuery = DailyRate::query()
+            ->leftJoin('collaborators', 'collaborators.id', '=', 'daily_rate.collaborator_id')
+            ->leftJoin('companies', 'companies.id', '=', 'daily_rate.company_id')
+            ->leftJoin('sections', 'sections.id', '=', 'daily_rate.section_id')
+            ->where('daily_rate.active', true);
+
+        if ($request->filled('collaborator_id')) {
+            $dailyRateQuery->whereIn('daily_rate.collaborator_id', (array) $request->collaborator_id);
         }
 
-        if ($request->end) {
-            $dailyRate->where('daily_rate.start', '<=', $request->end);
+        if ($request->filled('company_id')) {
+            $dailyRateQuery->whereIn('daily_rate.company_id', (array) $request->company_id);
         }
 
-        $dailyRate = $dailyRate->get();
-        
-        $groupedDailyRates = $dailyRate->groupBy('company_id');
+        if ($request->filled('start')) {
+            $startDate = \Carbon\Carbon::parse($request->start)->format('Y-m-d H:i:s');
+            $dailyRateQuery->where('daily_rate.start', '>=', $startDate);
+        }
 
-        $html = View::make('reports.registers-layout', ['dailyRate' => $groupedDailyRates, 'user' => $user])->render();
-    
+        if ($request->filled('end')) {
+            $endDate = \Carbon\Carbon::parse($request->end)->format('Y-m-d H:i:s');
+            $dailyRateQuery->where('daily_rate.start', '<=', $endDate);
+        }
+
+        $dailyRates = $dailyRateQuery->select([
+                'daily_rate.collaborator_id as collaborator_id',
+                'daily_rate.company_id as company_id',
+                'daily_rate.section_id as section_id',
+                'collaborators.name as collaborators_name',
+                'collaborators.document as document',
+                'companies.name as company_name',
+                'sections.name as section_name',
+                'daily_rate.start as start',
+                'daily_rate.end as end',
+                'daily_rate.total_time as total_time',
+                'daily_rate.pay_amount as pay_amount',
+                'collaborators.pix_key as pix_key'
+            ])
+            ->orderBy('daily_rate.company_id')
+            ->orderBy('daily_rate.section_id')
+            ->orderBy('daily_rate.start')
+            ->get();
+
+        $collaboratorsWithoutRecords = collect();
+
+        if ($request->filled('collaborator_id')) {
+            $filteredCollaboratorIds = (array) $request->collaborator_id;
+            $foundCollaboratorIds = $dailyRates->pluck('collaborator_id')->unique()->toArray();
+            $missingIds = array_diff($filteredCollaboratorIds, $foundCollaboratorIds);
+
+            if (!empty($missingIds)) {
+                $collaboratorsWithoutRecords = \App\Models\Collaborator::whereIn('id', $missingIds)
+                    ->select('id', 'name', 'document')
+                    ->get();
+            }
+        }
+
+        $groupedDailyRates = $dailyRates->groupBy('company_id');
+
+        $periodoStart = $request->filled('start') ? \Carbon\Carbon::parse($request->start)->format('d/m/Y H:i') : null;
+        $periodoEnd   = $request->filled('end') ? \Carbon\Carbon::parse($request->end)->format('d/m/Y H:i') : null;
+
+        $html = View::make('reports.registers-layout', [
+            'dailyRate' => $groupedDailyRates,
+            'collaboratorsWithoutRecords' => $collaboratorsWithoutRecords,
+            'user' => $user,
+            'periodoStart' => $periodoStart,
+            'periodoEnd' => $periodoEnd
+        ])->render();
+
         $dompdf = new Dompdf();
-
         $dompdf->loadHtml($html);
-
-        // Define o tamanho e orientação da página
         $dompdf->setPaper('A4', 'portrait');
-
-        // Renderiza o HTML para PDF
         $dompdf->render();
-
-        // Envia o PDF para o navegador com opção de baixar
-        $dompdf->stream('arquivo.pdf', ['Attachment' => false]);
+        $dompdf->stream('relatorio_registros.pdf', ['Attachment' => false]);
 
         exit();
-
     }
 
     public static function extratoFinanceiro($start, $end)
