@@ -38,7 +38,7 @@ Route::middleware('auth')->group(function () {
         Route::put('/{id}', [UsersController::class, 'update'])->name('users.update')->middleware('permission:Atualizar usuários'); // Atualizar usuário
         Route::delete('/{id}', [UsersController::class, 'destroy'])->name('users.destroy')->middleware('permission:Deletar usuários'); // Excluir usuário
     });
-    
+
     Route::prefix('collaborators')->group(function () {
         Route::get('/', [CollaboratorsController::class, 'index'])->name('collaborators.index')->middleware('permission:Lista de colaboradores');
         Route::get('/table', [CollaboratorsController::class, 'table'])->name('collaborators.table')->middleware('permission:Lista de colaboradores');
@@ -47,8 +47,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/edit', [CollaboratorsController::class, 'edit'])->name('collaborators.edit')->middleware('permission:Formulário de edição dos colaboradores');
         Route::put('/{id}', [CollaboratorsController::class, 'update'])->name('collaborators.update')->middleware('permission:Atualizar colaboradores');
         Route::delete('/{id}', [CollaboratorsController::class, 'destroy'])->name('collaborators.destroy')->middleware('permission:Deletar colaboradores');
+
+        Route::get('/export-pdf', [CollaboratorsController::class, 'exportPdf'])->name('collaborators.export-pdf')->middleware('permission:Lista de colaboradores');
     });
-    
+
     Route::prefix('companies')->group(function () {
         Route::get('/', [CompanyController::class, 'index'])->name('companies.index')->middleware('permission:Lista de estabelecimentos');
         Route::get('/table', [CompanyController::class, 'table'])->name('companies.table')->middleware('permission:Lista de estabelecimentos');
@@ -57,11 +59,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/edit', [CompanyController::class, 'edit'])->name('companies.edit')->middleware('permission:Formulário de edição dos estabelecimentos');
         Route::put('/{id}', [CompanyController::class, 'update'])->name('companies.update')->middleware('permission:Atualizar estabelecimentos');
         Route::delete('/{id}', [CompanyController::class, 'destroy'])->name('companies.destroy')->middleware('permission:Deletar estabelecimentos');
-        
+
         Route::get('/hourly-rate/{id}', [CompanyController::class, 'getHourlyRate'])->name('companies.hourly-rate');
     });
     Route::delete('/company-has-section/remove', [CompanyHasSectionController::class, 'remove'])->name(name: 'companyHasSection.remove');
-    
+
     Route::prefix('daily-rate')->group(function () {
         Route::get('/', [DailyRateController::class, 'index'])->name('daily-rate.index')->middleware('permission:Lista de diárias');
         Route::get('/table', [DailyRateController::class, 'table'])->name('daily-rate.table')->middleware('permission:Lista de diárias');
@@ -70,22 +72,19 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/edit', [DailyRateController::class, 'edit'])->name('daily-rate.edit')->middleware('permission:Formulário de edição dos diárias');
         Route::put('/{id}', [DailyRateController::class, 'update'])->name('daily-rate.update')->middleware('permission:Atualizar diárias');
         Route::delete('/{id}', [DailyRateController::class, 'destroy'])->name('daily-rate.destroy')->middleware('permission:Deletar diárias');
-        
-        
     });
-    
+
     Route::prefix('rules/acordo-valor-extra')->middleware('permission:Visualizar e inserir informações financeiras nas diárias')->group(function () {
-        
+
         Route::get('/', [AcordoValorExtraController::class, 'index'])->name('acordo-valor-extra.index');
-        
+
         Route::get('/list/{company_id}', [AcordoValorExtraController::class, 'list'])->name('acordo-valor-extra.data.list');
-        
+
         Route::get('/find/{company_id}/{colaborator_id}', [AcordoValorExtraController::class, 'findExtraValueAgreement'])->name('acordo-valor-extra.data.find');
-        
+
         Route::get('/{id}', [AcordoValorExtraController::class, 'item'])->name('acordo-valor-extra.data.show');
         Route::post('/create', [AcordoValorExtraController::class, 'create'])->name('acordo-valor-extra.data.create');
         Route::delete('/delete/{id}', [AcordoValorExtraController::class, 'delete'])->name('acordo-valor-extra.data.create');
-        
     });
 
 
@@ -94,10 +93,12 @@ Route::middleware('auth')->group(function () {
         Log::info(Company::findOrFail($companyId)->load('coordinator'));
 
         return Company::findOrFail($companyId)->load('coordinator');
-    })->name('company.company'); 
+    })->name('company.company');
 
 
-Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {return Collaborator::findOrFail($colaboratorId);})->name('company.colaborator');
+    Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {
+        return Collaborator::findOrFail($colaboratorId);
+    })->name('company.colaborator');
     Route::prefix('report')->group(function () {
         Route::get('/dailyrates', [ReportsController::class, 'dailyRates'])->name('report.daily-rates');
         Route::get('/financial', [ReportsController::class, 'financial'])->name('report.financial');
@@ -112,8 +113,8 @@ Route::get('get-colaborator/{colaboratorId}', function ($colaboratorId) {return 
 
     //Route::delete('/company-sections/remove', [CompanyHasSectionController::class, 'remove']);
     Route::get('/resultados-financeiros', FinantialResults::class)->name('finantial-results')
-    ->middleware('permission:Visualizar e inserir informações financeiras nas diárias');
-    
+        ->middleware('permission:Visualizar e inserir informações financeiras nas diárias');
+
     //Route::get('/cash-flow', CashFlow::class)->name('finantial-results2');
 
 });
@@ -130,7 +131,7 @@ Route::middleware(['auth', 'permission:Processar boletos e confirmar recebimento
 Route::middleware(['auth', 'permission:Gerir pagamento de colaboradores e custos'])->group(function () {
     Route::get('/collaborator/earnings', [CollaboratorFinanceController::class, 'index'])->name('admin.collaborator.earnings');
     Route::get('/collaborator/earnings/{id}', [CollaboratorFinanceController::class, 'get_wallet'])->name('admin.collaborator.earnings.single');
-    
+
     Route::prefix('admin/finance/processor')
         ->name('admin.finance.processor.')
         ->group(function () {
@@ -174,4 +175,4 @@ Route::prefix('admin/batches')->name('admin.batches.')->group(function () {
     Route::put('/{batch}', [BatchesController::class, 'update'])->name('update');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

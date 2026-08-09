@@ -15,6 +15,8 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Yajra\DataTables\Facades\DataTables;
+use Dompdf\Dompdf;
+use Illuminate\Support\Facades\View;
 
 class CollaboratorsController extends Controller
 {
@@ -23,7 +25,14 @@ class CollaboratorsController extends Controller
      */
     public function index()
     {
-        return View('app.collaborators.index', ['collaborators' => Collaborator::getActive()]);
+        $groups = Collaborator::whereNotNull('group')
+            ->distinct()
+            ->pluck('group');
+        
+        return view('app.collaborators.index', [
+            'collaborators' => Collaborator::getActive(), 
+            'groups' => $groups
+        ]);
     }
 
     /**
@@ -47,9 +56,17 @@ class CollaboratorsController extends Controller
     }
 
     public function table(Request $request){
-        $collaborators = Collaborator::query()
+        $query = Collaborator::where('active', true);
+
+        if ($request->has('groups') && is_array($request->groups) && count($request->groups) > 0) {
+            $query->whereIn('group', $request->groups);
+        }
+
+        /*$collaborators = Collaborator::query()
             ->where('active', '=', true)
-            ->orderBy('name');
+            ->orderBy('name');*/
+        
+        $collaborators = $query->get();
 
         return DataTables::of($collaborators)
             ->addColumn('name', function ($collaborator) {
@@ -71,6 +88,28 @@ class CollaboratorsController extends Controller
             ->make(true);
     }
 
+
+    public function exportPdf(Request $request)
+    {
+        $query = Collaborator::where('active', true);
+
+        if ($request->has('groups') && is_array($request->groups) && count($request->groups) > 0) {
+            $query->whereIn('group', $request->groups);
+        }
+
+        $collaborators = $query->orderBy('name')->get();
+
+        $html = View::make('reports.collaboratorsPerGroup', compact('collaborators'))->render();
+
+        $dompdf = new Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        $dompdf->stream('colaboradores.pdf', ['Attachment' => false]);
+
+        exit();
+    }
     /**
      * Store a newly created resource in storage.
      */
