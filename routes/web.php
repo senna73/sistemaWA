@@ -14,6 +14,7 @@ use App\Http\Controllers\Finance\Admin\LeaderCostCenterController;
 use App\Http\Controllers\Finance\collaborator\CollaboratorFinanceController;
 use App\Http\Controllers\Finance\companies\CompanyAssignmentController;
 use App\Http\Controllers\ReportsController;
+use App\Http\Controllers\UniformsController;
 use App\Livewire\CashFlow;
 use App\Livewire\FinantialResults;
 use App\Models\Collaborator;
@@ -173,6 +174,12 @@ Route::get('/admin/finance/analytics/pdf/ativos', [AnalyticsController::class, '
 
 Route::prefix('admin/batches')->name('admin.batches.')->group(function () {
     Route::put('/{batch}', [BatchesController::class, 'update'])->name('update');
+});
+
+Route::prefix('admin/uniforms')->group(function () {
+    Route::get('/', [UniformsController::class, 'index'])->name('admin.uniforms.index');
+    Route::post('/deliver/{id}', [UniformsController::class, 'deliver'])->name('admin.uniforms.deliver');
+    Route::post('/deliver-batch', [UniformsController::class, 'deliverBatch'])->name('admin.uniforms.deliver-batch');
 });
 
 require __DIR__ . '/auth.php';

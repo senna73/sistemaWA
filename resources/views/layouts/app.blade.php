@@ -180,6 +180,12 @@
                     <div data-i18n="Basic">Capital Empresarial</div>
                 </a>
             </li>
+            <li class="menu-item {{ request()->routeIs('admin.uniforms.*') ? 'active' : '' }}">
+                <a href="{{ route('admin.uniforms.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-closet"></i>
+                    <div data-i18n="Basic">Uniformes</div>
+                </a>
+            </li>
           </ul>
         </aside>
         <!-- / Menu -->
