@@ -3,6 +3,9 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Collaborator extends Model
 {
@@ -24,6 +27,8 @@ class Collaborator extends Model
         'mobile',
         'group',
         'leave_end_date',
+        'uniform_size',
+        'uniform_type',
         
         'examined_medical_clinic_id',
     ];
@@ -56,5 +61,37 @@ class Collaborator extends Model
     public function clinics()
     {
         return $this->hasOne(MedicalClinic::class);
+    }
+
+    public function getTargetSectorsAttribute()
+    {
+        return $this->sectors ?? collect();
+    }
+
+    public function workedSections()
+    {
+        return $this->hasManyThrough(
+            Section::class,
+            DailyRate::class,
+            'collaborator_id',
+            'id',
+            'id',
+            'section_id'
+        )->distinct();
+    }
+
+    public function sections(): BelongsToMany
+    {
+        return $this->belongsToMany(
+            Section::class,
+            'daily_rate',
+            'collaborator_id',
+            'section_id'
+        )->distinct();
+    }
+
+    public function uniforms(): HasMany
+    {
+        return $this->hasMany(CollaboratorUniform::class, 'collaborator_id');
     }
 }

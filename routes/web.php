@@ -176,10 +176,13 @@ Route::prefix('admin/batches')->name('admin.batches.')->group(function () {
     Route::put('/{batch}', [BatchesController::class, 'update'])->name('update');
 });
 
-Route::prefix('admin/uniforms')->group(function () {
-    Route::get('/', [UniformsController::class, 'index'])->name('admin.uniforms.index');
-    Route::post('/deliver/{id}', [UniformsController::class, 'deliver'])->name('admin.uniforms.deliver');
-    Route::post('/deliver-batch', [UniformsController::class, 'deliverBatch'])->name('admin.uniforms.deliver-batch');
-});
+Route::middleware(['auth'])->prefix('admin/uniforms')->name('admin.uniforms.')->group(function () {
+    Route::get('/', [UniformsController::class, 'index'])->name('index');
 
+    Route::post('/deliver/{id}', [UniformsController::class, 'deliver'])->name('deliver');
+
+    Route::post('/deliver-batch', [UniformsController::class, 'deliverBatch'])->name('deliver-batch');
+
+    Route::get('/report-pdf', [UniformsController::class, 'generateReportPdf'])->name('report-pdf');
+});
 require __DIR__ . '/auth.php';
