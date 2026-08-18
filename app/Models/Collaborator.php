@@ -94,4 +94,5 @@ class Collaborator extends Model
     {
         return $this->hasMany(CollaboratorUniform::class, 'collaborator_id');
     }
+
 }

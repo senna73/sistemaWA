@@ -217,6 +217,8 @@ class CollaboratorsController extends Controller
             ->make(true);
     }
 
+
+
     public function exportPdf(Request $request)
     {
         $query = Collaborator::where('active', true);
@@ -225,18 +227,56 @@ class CollaboratorsController extends Controller
             $query->whereIn('group', $request->groups);
         }
 
-        $collaborators = $query->orderBy('name')->get();
+        $collaborators = $query->withMax(['dailyRates' => function ($q) {
+            $q->where('active', true);
+        }], 'start')
+        ->orderBy('group')
+        ->orderBy('name')
+        ->get()
+        ->map(function ($collaborator) {
+            $lastDate = $collaborator->daily_rates_max_start 
+                ? Carbon::parse($collaborator->daily_rates_max_start)->startOfDay() 
+                : null;
 
-        $html = View::make('reports.collaboratorsPerGroup', compact('collaborators'))->render();
+            if ($lastDate) {
+                $daysInactive = (int) $lastDate->diffInDays(now()->startOfDay(), false);
+
+                if ($lastDate->isFuture()) {
+                    $collaborator->status_tag = 'success';
+                    $collaborator->status_label = 'Agendado';
+                } elseif ($daysInactive > 20) {
+                    $collaborator->status_tag = 'danger';
+                    $collaborator->status_label = "{$daysInactive} dias sem diária";
+                } elseif ($daysInactive >= 7) {
+                    $collaborator->status_tag = 'warning';
+                    $collaborator->status_label = "{$daysInactive} dias sem diária";
+                } else {
+                    $collaborator->status_tag = 'success';
+                    $collaborator->status_label = $daysInactive === 0 ? 'Hoje' : "Há {$daysInactive} dia(s)";
+                }
+            } else {
+                $collaborator->status_tag = 'danger';
+                $collaborator->status_label = 'Sem diárias';
+            }
+
+            $collaborator->last_daily_date = $lastDate;
+
+            return $collaborator;
+        });
+
+        $groupedCollaborators = $collaborators->groupBy('group');
+
+        $html = View::make('reports.collaboratorsPerGroup', [
+            'groupedCollaborators' => $groupedCollaborators,
+            'totalGeneral'        => $collaborators->count()
+        ])->render();
 
         $dompdf = new Dompdf();
         $dompdf->loadHtml($html);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
-        $dompdf->stream('colaboradores.pdf', ['Attachment' => false]);
-
-        exit();
+        return $dompdf->stream('colaboradores.pdf', ['Attachment' => false]);
     }
 
     public function destroy(string $id)
