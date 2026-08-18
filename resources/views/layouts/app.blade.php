@@ -4,6 +4,12 @@
   #layout-menu {
     height: 100vh !important;
     overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+
+  #layout-menu .menu-inner {
+    overflow-y: visible !important;
+    height: auto !important;
+    padding-bottom: 80px !important; 
   }
 
   #layout-menu::-webkit-scrollbar {
