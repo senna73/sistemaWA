@@ -48,7 +48,6 @@ class UniformsController extends Controller
     {
         if ($kitType === 'Kit Açougue') {
             return match (true) {
-                $dailyRatesCount >= 200 => 3,
                 $dailyRatesCount >= 100  => 2,
                 $dailyRatesCount >= 2   => 1,
                 default                 => 0,
@@ -56,9 +55,9 @@ class UniformsController extends Controller
         }
 
         return match (true) {
-            $dailyRatesCount >= 200 => 3,
-            $dailyRatesCount >= 100  => 2,
-            $dailyRatesCount >= 2  => 1,
+            $dailyRatesCount >= 100 => 3,
+            $dailyRatesCount >= 30  => 2,
+            $dailyRatesCount >= 5  => 1,
             default                 => 0,
         };
     }
