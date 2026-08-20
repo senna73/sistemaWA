@@ -33,6 +33,9 @@ class DailyRate extends Model
         'employee_discount',
         'discount_description',
         
+        'coordinator_id',
+        'coordinator_amount',
+
         'active',
         'user_id',
     ];
@@ -80,4 +83,8 @@ class DailyRate extends Model
 
     }
 
+    public function coordinator()
+    {
+        return $this->belongsTo(User::class, 'coordinator_id', 'id');
+    }
 }
