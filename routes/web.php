@@ -185,4 +185,9 @@ Route::middleware(['auth'])->prefix('admin/uniforms')->name('admin.uniforms.')->
 
     Route::get('/report-pdf', [UniformsController::class, 'generateReportPdf'])->name('report-pdf');
 });
+
+Route::get('/landing-page', function () {
+    return view('landing-page');
+})->name('landing.page');
+
 require __DIR__ . '/auth.php';
