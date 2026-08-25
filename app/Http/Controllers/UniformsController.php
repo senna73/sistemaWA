@@ -19,26 +19,27 @@ class UniformsController extends Controller
 {
     private function resolveKitType(?string $sectionName, bool $isLeader = false): string
     {
-        if ($isLeader) {
-            return 'Kit Líder';
-        }
-
         if (!$sectionName) {
-            return 'Kit Padrão';
+            return $isLeader ? 'Camisa Liderança' : 'Kit Padrão';
         }
 
         $name = mb_strtolower($sectionName);
+
+        if ($isLeader || str_contains($name, 'líder') || str_contains($name, 'lider')) {
+            return 'Camisa Liderança';
+        }
 
         if (str_contains($name, 'açougue') || str_contains($name, 'acougue')) {
             return 'Kit Açougue';
         }
 
         if (str_contains($name, 'padaria')) {
-            return 'Kit Padaria';
+            return 'Camisa Branca';
         }
 
-        if (str_contains($name, 'líder') || str_contains($name, 'lider')) {
-            return 'Kit Líder';
+        if (str_contains($name, 'reposição') || str_contains($name, 'reposicao') || 
+            str_contains($name, 'caixa') || str_contains($name, 'operador')) {
+            return 'Camisa Azul';
         }
 
         return 'Kit Padrão';
@@ -48,8 +49,8 @@ class UniformsController extends Controller
     {
         if ($kitType === 'Kit Açougue') {
             return match (true) {
-                $dailyRatesCount >= 100  => 2,
-                $dailyRatesCount >= 2   => 1,
+                $dailyRatesCount >= 100 => 2,
+                $dailyRatesCount >= 1   => 1,
                 default                 => 0,
             };
         }
@@ -57,9 +58,103 @@ class UniformsController extends Controller
         return match (true) {
             $dailyRatesCount >= 100 => 3,
             $dailyRatesCount >= 30  => 2,
-            $dailyRatesCount >= 5  => 1,
+            $dailyRatesCount >= 5   => 1,
             default                 => 0,
         };
+    }
+
+    /**
+     * Agrupa as seções e calcula o tipo de kit avaliando o is_leader vindo das diárias.
+     */
+    private function getCollaboratorUniformItems(Collaborator $collab, bool $onlyActiveDailyRates = false)
+    {
+        $items = collect();
+
+        if ($collab->sections->isEmpty()) {
+            $dailyRatesQuery = $collab->dailyRates();
+            if ($onlyActiveDailyRates) {
+                $dailyRatesQuery->where('active', true);
+            }
+            
+            $dailyRates = $dailyRatesQuery->get();
+            $dailyRatesCount = $dailyRates->count();
+            $lastDailyAt     = $dailyRates->max('start');
+
+            $hasLeaderDaily = $dailyRates->contains(function ($rate) {
+                return (bool) ($rate->is_leader ?? false);
+            });
+
+            $kitType = $this->resolveKitType(null, $hasLeaderDaily);
+
+            $totalDelivered = $collab->uniforms->filter(function($u) use ($kitType) {
+                return $u->type && $u->type->name === $kitType;
+            })->sum('quantity');
+
+            $entitled   = $this->calculateEntitledUniforms($kitType, $dailyRatesCount);
+            $pendingQty = max(0, $entitled - $totalDelivered);
+
+            $items->push((object) [
+                'id'                 => $collab->id,
+                'collab'             => $collab,
+                'name'               => $collab->name,
+                'uniform_size'       => $collab->uniform_size,
+                'section'            => null,
+                'section_name'       => 'Geral',
+                'kit_type'           => $kitType,
+                'daily_rates_count'  => $dailyRatesCount,
+                'uniforms_entitled'  => $entitled,
+                'uniforms_delivered' => $totalDelivered,
+                'pending_qty'        => $pendingQty,
+                'last_daily_at'      => $lastDailyAt,
+            ]);
+
+            return $items;
+        }
+
+        $allDailyRatesQuery = $collab->dailyRates();
+        if ($onlyActiveDailyRates) {
+            $allDailyRatesQuery->where('active', true);
+        }
+        $allDailyRates = $allDailyRatesQuery->get();
+
+        $groupedSections = $collab->sections->groupBy(function ($section) use ($allDailyRates) {
+            $sectionRates = $allDailyRates->where('section_id', $section->id);
+            $hasLeaderDaily = $sectionRates->contains(fn($rate) => (bool) ($rate->is_leader ?? false));
+
+            return $this->resolveKitType($section->name, $hasLeaderDaily);
+        });
+
+        foreach ($groupedSections as $kitType => $sections) {
+            $sectionIds = $sections->pluck('id');
+
+            $sectionRates = $allDailyRates->whereIn('section_id', $sectionIds);
+            $dailyRatesCount = $sectionRates->count();
+            $lastDailyAt     = $sectionRates->max('start');
+
+            $totalDelivered = $collab->uniforms->filter(function($u) use ($kitType) {
+                return $u->type && $u->type->name === $kitType;
+            })->sum('quantity');
+
+            $entitled   = $this->calculateEntitledUniforms($kitType, $dailyRatesCount);
+            $pendingQty = max(0, $entitled - $totalDelivered);
+
+            $items->push((object) [
+                'id'                 => $collab->id,
+                'collab'             => $collab,
+                'name'               => $collab->name,
+                'uniform_size'       => $collab->uniform_size,
+                'section'            => $sections->first(),
+                'section_name'       => $sections->pluck('name')->implode(', '),
+                'kit_type'           => $kitType,
+                'daily_rates_count'  => $dailyRatesCount,
+                'uniforms_entitled'  => $entitled,
+                'uniforms_delivered' => $totalDelivered,
+                'pending_qty'        => $pendingQty,
+                'last_daily_at'      => $lastDailyAt,
+            ]);
+        }
+
+        return $items;
     }
 
     public function index()
@@ -69,25 +164,14 @@ class UniformsController extends Controller
         $pending = collect();
 
         foreach ($collaborators as $collab) {
-            // Calcula o total de uniformes entregues ao colaborador via histórico
-            $totalDelivered = $collab->uniforms->sum('quantity');
-
-            if ($collab->sections->isNotEmpty()) {
-                foreach ($collab->sections as $section) {
-                    $item = $this->buildUniformItem($collab, $section, $totalDelivered);
-                    if ($item->pending_qty > 0) {
-                        $pending->push($item);
-                    }
-                }
-            } else {
-                $item = $this->buildUniformItem($collab, null, $totalDelivered);
+            $items = $this->getCollaboratorUniformItems($collab);
+            foreach ($items as $item) {
                 if ($item->pending_qty > 0) {
                     $pending->push($item);
                 }
             }
         }
 
-        // Listagem da aba "Entregues": busca os registros diretos da tabela collaborator_uniforms
         $delivered = CollaboratorUniform::with(['collaborator', 'type', 'size'])
             ->latest('delivered_at')
             ->get();
@@ -107,30 +191,6 @@ class UniformsController extends Controller
         ));
     }
 
-    private function buildUniformItem(Collaborator $collab, ?Section $section, int $totalDelivered)
-    {
-        $dailyRatesCount = $section
-            ? $collab->dailyRates()->where('section_id', $section->id)->count()
-            : $collab->dailyRates()->count();
-
-        $kitType = $this->resolveKitType($section?->name, (bool) $collab->is_leader);
-        $uniformsEntitled = $this->calculateEntitledUniforms($kitType, $dailyRatesCount);
-        $pendingQty = max(0, $uniformsEntitled - $totalDelivered);
-
-        return (object) [
-            'collab'             => $collab,
-            'section'            => $section,
-            'kit_type'           => $kitType,
-            'daily_rates_count'  => $dailyRatesCount,
-            'uniforms_entitled'  => $uniformsEntitled,
-            'uniforms_delivered' => $totalDelivered,
-            'pending_qty'        => $pendingQty,
-        ];
-    }
-
-    /**
-     * Persiste a entrega na tabela collaborator_uniforms
-     */
     public function deliver(Request $request, string $id)
     {
         $request->validate([
@@ -145,7 +205,6 @@ class UniformsController extends Controller
 
             $collaborator = Collaborator::findOrFail($id);
 
-            // Caso o ID não venha do request, busca o ID do tipo padrão (ou cria se não existir)
             $uniformTypeId = $request->uniform_type_id;
 
             if (!$uniformTypeId) {
@@ -183,6 +242,7 @@ class UniformsController extends Controller
 
     public function generateReportPdf()
     {
+        get_class($this); // Apenas mantendo padrão
         ini_set('memory_limit', '512M');
 
         $user = Auth::user();
@@ -194,53 +254,10 @@ class UniformsController extends Controller
         $pending = collect();
 
         foreach ($collaborators as $collab) {
-            $totalDelivered = $collab->uniforms->sum('quantity');
-
-            if ($collab->sections->isNotEmpty()) {
-                foreach ($collab->sections as $section) {
-                    $dailyRatesCount = $collab->dailyRates()->where('section_id', $section->id)->count();
-                    $lastDailyAt = $collab->dailyRates()->where('section_id', $section->id)->max('start');
-
-                    $kitType = $this->resolveKitType($section->name, (bool) $collab->is_leader);
-                    $entitled = $this->calculateEntitledUniforms($kitType, $dailyRatesCount);
-                    $pendingQty = max(0, $entitled - $totalDelivered);
-
-                    if ($pendingQty > 0) {
-                        $pending->push((object) [
-                            'id'                 => $collab->id,
-                            'name'               => $collab->name,
-                            'uniform_size'       => $collab->uniform_size,
-                            'kit_type'           => $kitType,
-                            'section_name'       => $section->name,
-                            'daily_rates_count'  => $dailyRatesCount,
-                            'uniforms_entitled'  => $entitled,
-                            'uniforms_delivered' => $totalDelivered,
-                            'pending_qty'        => $pendingQty,
-                            'last_daily_at'      => $lastDailyAt,
-                        ]);
-                    }
-                }
-            } else {
-                $dailyRatesCount = $collab->dailyRates()->count();
-                $lastDailyAt = $collab->dailyRates()->max('start');
-
-                $kitType = $this->resolveKitType(null, (bool) $collab->is_leader);
-                $entitled = $this->calculateEntitledUniforms($kitType, $dailyRatesCount);
-                $pendingQty = max(0, $entitled - $totalDelivered);
-
-                if ($pendingQty > 0) {
-                    $pending->push((object) [
-                        'id'                 => $collab->id,
-                        'name'               => $collab->name,
-                        'uniform_size'       => $collab->uniform_size,
-                        'kit_type'           => $kitType,
-                        'section_name'       => 'Geral',
-                        'daily_rates_count'  => $dailyRatesCount,
-                        'uniforms_entitled'  => $entitled,
-                        'uniforms_delivered' => $totalDelivered,
-                        'pending_qty'        => $pendingQty,
-                        'last_daily_at'      => $lastDailyAt,
-                    ]);
+            $items = $this->getCollaboratorUniformItems($collab, true);
+            foreach ($items as $item) {
+                if ($item->pending_qty > 0) {
+                    $pending->push($item);
                 }
             }
         }
