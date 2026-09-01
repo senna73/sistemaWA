@@ -24,7 +24,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Livewire\Livewire;
 
-Route::get('/', function () {
+Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
@@ -186,7 +186,8 @@ Route::middleware(['auth'])->prefix('admin/uniforms')->name('admin.uniforms.')->
     Route::get('/report-pdf', [UniformsController::class, 'generateReportPdf'])->name('report-pdf');
 });
 
-Route::get('/landing-page', function () {
+
+Route::get('/', function () {
     return view('landing-page');
 })->name('landing.page');
 

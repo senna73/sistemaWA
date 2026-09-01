@@ -14,13 +14,13 @@
                 <img src="{{ asset('img/logo-wa.png') }}" alt="WA Merchandising" style="object-fit: cover; max-width: 200px; max-height: 48px;">
             </a>
         </div>
-        <!--<div>
+        <div>
             @auth
-                <a href="{{ route('dashboard') }}" class="text-sm font-medium text-blue-600 hover:underline">Painel / Dashboard</a>
+                <a href="{{ route('dashboard') }}" class="text-sm font-medium text-blue-600 hover:underline">Acesso/Login</a>
             @else
-                <a href="{{ route('login') }}" class="text-sm font-medium text-gray-600 hover:text-blue-600 mr-4">Entrar</a>
+                <a href="{{ route('login') }}" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition">Entrar</a>
             @endauth
-        </div> -->
+        </div>
     </header>
 
     <main class="flex-grow">
@@ -30,7 +30,7 @@
                 Atuação focada em promoção de vendas e prestação de serviços especializados para empresas, garantindo eficiência, qualidade e suporte estratégico para o seu negócio.
             </p>
             <div class="flex justify-center gap-4">
-                <a href="mailto:cm.contabilidade2050@gmail.com" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium shadow hover:bg-blue-700 transition">Entre em Contato</a>
+                <a href="mailto:atendimento@wa-solucoes.com" class="bg-blue-600 text-white px-6 py-3 rounded-lg font-medium shadow hover:bg-blue-700 transition">Entre em Contato</a>
             </div>
         </section>
 
@@ -40,11 +40,11 @@
                 <div class="grid md:grid-cols-2 gap-6 justify-center">
                     <div class="p-4 border rounded-lg">
                         <h3 class="font-semibold text-lg mb-2">Promoção de Vendas</h3>
-                        <p class="text-sm text-gray-600">Atividade principal voltada a estratégias e ações diretas de promoção de vendas[cite: 1].</p>
+                        <p class="text-sm text-gray-600">Atividade principal voltada a estratégias e ações diretas de promoção de vendas.</p>
                     </div>
                     <div class="p-4 border rounded-lg">
                         <h3 class="font-semibold text-lg mb-2">Serviços Especializados</h3>
-                        <p class="text-sm text-gray-600">Outras atividades de serviços prestados principalmente às empresas[cite: 1].</p>
+                        <p class="text-sm text-gray-600">Outras atividades de serviços prestados principalmente às empresas.</p>
                     </div>
                 </div>
             </div>
@@ -59,7 +59,7 @@
                 <p class="text-xs text-gray-500 mt-1">Rua João Deola, 150, Apt 101 Bloco 13, Progresso, Blumenau - SC</p>
             </div>
             <div class="flex flex-col items-center md:items-end gap-1">
-                <p>E-mail: cm.contabilidade2050@gmail.com</p>
+                <p>E-mail: atendimento@wa-solucoes.com</p>
                 <p>Telefone: (47) 9213-3429</p>
                 <div class="flex items-center gap-1 text-xs text-green-400 mt-1">
                     <span>🔒 Site Seguro com SSL Ativo</span>
