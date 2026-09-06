@@ -12,6 +12,7 @@ use App\Models\CompanyHasCity;
 use App\Models\CompanyHasSection;
 use App\Models\ConfigTable;
 use App\Models\DailyRate;
+use App\Models\FinancialBatches;
 use App\Models\Section;
 use App\Models\UserHasCompany;
 use Carbon\Carbon;
@@ -181,6 +182,13 @@ class DailyRateController extends Controller
                     'message' => implode("\n", $validator->errors()->all()),
                 ], 422);
             }
+
+                if ($this->hasProcessedFinancialBatch($request->company_id, $request->start)) {
+                    return response()->json([
+                        'type' => 'error',
+                        'message' => 'Não é possível lançar a diária: já existe uma nota processada para esta empresa e período.',
+                    ], 422);
+                }
 
             DB::beginTransaction();
 
@@ -439,6 +447,22 @@ class DailyRateController extends Controller
                 'type' => 'error'
             ], 500);
         }
+    }
+
+    private function hasProcessedFinancialBatch(int|string $companyId, string $start): bool
+    {
+        $date = Carbon::parse($start)->toDateString();
+
+        return FinancialBatches::where('company_id', $companyId)
+            ->whereDate('period_start', '<=', $date)
+            ->whereDate('period_end', '>=', $date)
+            ->where(function ($query) {
+                $query->whereIn('status', ['processing', 'completed'])
+                    ->orWhereHas('invoices', function ($invoiceQuery) {
+                        $invoiceQuery->where('received', true);
+                    });
+            })
+            ->exists();
     }
 
     public function getCompanySections($companyId)
