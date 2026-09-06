@@ -224,7 +224,7 @@ class DailyRateController extends Controller
                 'user_id' => $request->user_id,
 
                 'coordinator_id' => $company->coordinator_id ?? null,
-                'coordinator_value' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
+                'coordinator_amount' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
 
                 'hourly_rate' => $hourlyRate,
                 
@@ -378,7 +378,7 @@ class DailyRateController extends Controller
                 'hourly_rate' => $request->hourly_rate,
                 
                 'coordinator_id' => $company->coordinator_id ?? null,
-                'coordinator_value' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
+                'coordinator_amount' => !empty($request->coordinator_pay_id) ? Money::unformat($request->coordinator_pay_id) : 0,
 
                 'leader_comission' => !empty($request->leaderComission_id) ? Money::unformat($request->leaderComission_id) : 0,
                 'transportation' => !empty($request->transport_id) ? Money::unformat($request->transport_id) : 0,

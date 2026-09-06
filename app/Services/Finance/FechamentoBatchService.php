@@ -106,7 +106,7 @@ public function processarFechamento(int $batchId, float $valorSolicitadoCC)
                 // Saídas operacionais básicas
                 $somaPagarColaboradores = (float) $dailyRates->sum('pay_amount'); 
                 
-                $somaPagarCoordenadores = (float) $dailyRates->sum('coordinator_value');
+                $somaPagarCoordenadores = (float) $dailyRates->sum('coordinator_amount');
 
                 $taxConfig = ConfigTable::where('id', 'tax_default')->first();
                 $taxRateRaw = $taxConfig ? (float) $taxConfig->value : 14.38; 
@@ -134,11 +134,11 @@ public function processarFechamento(int $batchId, float $valorSolicitadoCC)
                 }
 
                 $pagamentosCoordenadores = $dailyRates->whereNotNull('coordinator_id')
-                    ->where('coordinator_value', '>', 0)
+                    ->where('coordinator_amount', '>', 0)
                     ->groupBy('coordinator_id');
 
                 foreach ($pagamentosCoordenadores as $coordinatorId => $diariasDoCoordenador) {
-                    $totalCustoCoordenador = (float) $diariasDoCoordenador->sum('coordinator_value');
+                    $totalCustoCoordenador = (float) $diariasDoCoordenador->sum('coordinator_amount');
                     
                     $this->collaboratorWalletService->credit(
                         $coordinatorId,

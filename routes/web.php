@@ -176,6 +176,10 @@ Route::prefix('admin/batches')->name('admin.batches.')->group(function () {
     Route::put('/{batch}', [BatchesController::class, 'update'])->name('update');
 });
 
+Route::get('/admin/batches/{batch}/calculate-daily-rates', [BatchesController::class, 'calculateDailyRates'])
+    ->middleware(['auth', 'permission:Processar boletos e confirmar recebimento'])
+    ->name('daily_rate.calculate');
+
 Route::middleware(['auth'])->prefix('admin/uniforms')->name('admin.uniforms.')->group(function () {
     Route::get('/', [UniformsController::class, 'index'])->name('index');
 
@@ -185,7 +189,6 @@ Route::middleware(['auth'])->prefix('admin/uniforms')->name('admin.uniforms.')->
 
     Route::get('/report-pdf', [UniformsController::class, 'generateReportPdf'])->name('report-pdf');
 });
-
 
 Route::get('/', function () {
     return view('landing-page');

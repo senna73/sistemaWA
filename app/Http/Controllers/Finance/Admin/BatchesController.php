@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Finance\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Models\CompanyHasSection;
+use App\Models\ConfigTable;
 use App\Models\DailyRate;
 use App\Models\FinancialBatches;
 use App\Services\Finance\FechamentoBatchService;
@@ -14,6 +16,7 @@ use Illuminate\Bus\Batch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class BatchesController extends Controller
 {
@@ -109,7 +112,7 @@ class BatchesController extends Controller
             'receita_bruta'      => $dailyRates->sum('earned'),
             'repasse_liquido'    => $dailyRates->sum('pay_amount') - $dailyRates->sum('employee_discount'),
             'comissoes_lider'    => $dailyRates->sum('leader_comission'),
-            'custos_coordenador' => $dailyRates->sum('coordinator_value'), 
+            'custos_coordenador' => $dailyRates->sum('coordinator_amount'), 
             'custos_operacao'    => $dailyRates->sum('transportation') + $dailyRates->sum('feeding'),
             'impostos_taxas'     => $dailyRates->sum('tax_paid') + $dailyRates->sum('inss_paid'),
         ];
@@ -137,7 +140,7 @@ class BatchesController extends Controller
         // ADICIONADO: Agrupamento dos valores por coordenador para o extrato
         $movCoordenador = $dailyRates->whereNotNull('coordinator_id')->groupBy('coordinator_id')->map(fn($g) => [
             'nome' => $g->first()->coordinator->name ?? 'Coordenador Não Identificado',
-            'valor' => $g->sum('coordinator_value'),
+            'valor' => $g->sum('coordinator_amount'),
             'tipo' => 'Coordenação'
         ]);
 
@@ -265,4 +268,221 @@ class BatchesController extends Controller
 
         return (float) $value;
     }
+    
+    public function calculateDailyRates(FinancialBatches $batch)
+    {
+        if ($batch->status !== 'pending') {
+            return redirect()->back()->with(
+                'error',
+                "Não é possível recalcular as diárias: o lote está com status '{$batch->status}'."
+            );
+        }
+
+        $company = Company::findOrFail($batch->company_id);
+        $inssDefault = (float) ConfigTable::getValue('inss_default');
+        $taxDefault = (float) ConfigTable::getValue('tax_default');
+
+        $dailyRates = DailyRate::with('collaborator')
+            ->where('company_id', $batch->company_id)
+            ->where('active', true)
+            ->whereBetween('start', [
+                Carbon::parse($batch->period_start)->startOfDay(),
+                Carbon::parse($batch->period_end)->endOfDay(),
+            ])
+            ->get();
+
+        $dailyRateIds = $dailyRates->modelKeys();
+        $operationId = (string) Str::uuid();
+        $beforeSnapshot = $dailyRates->mapWithKeys(function (DailyRate $dailyRate) {
+            return [$dailyRate->id => $dailyRate->getAttributes()];
+        })->all();
+
+        Log::info(implode(PHP_EOL, [
+            '========== RECALCULO DE DIARIAS - INICIO ==========',
+            "operation_id: {$operationId}",
+            "batch_id: {$batch->id}",
+            "company_id: {$batch->company_id}",
+            "period_start: {$batch->period_start->toDateString()}",
+            "period_end: {$batch->period_end->toDateString()}",
+            'total_records: ' . count($beforeSnapshot),
+            'daily_rate_ids: ' . implode(', ', $dailyRateIds),
+            '=====================================================',
+        ]));
+
+        $auditRecords = DB::transaction(function () use ($dailyRates, $dailyRateIds, $beforeSnapshot, $operationId, $batch, $company, $inssDefault, $taxDefault) {
+            foreach ($dailyRates as $dailyRate) {
+                $section = CompanyHasSection::where('company_id', $dailyRate->company_id)
+                    ->where('section_id', $dailyRate->section_id)
+                    ->where('active', true)
+                    ->firstOrFail();
+
+                $collaborator = $dailyRate->collaborator;
+                $payRate = match (true) {
+                    $collaborator?->is_leader === 1 => (float) $section->leaderPay,
+                    $collaborator?->is_extra === 1 => (float) $section->extra,
+                    $collaborator?->is_supervisor === 1 => (float) $section->supervisorPay,
+                    default => (float) $section->employeePay,
+                };
+
+                $earnedRate = (float) $section->earned;
+                $hoursWorked = 0.0;
+                if ($section->perHour && $dailyRate->start && $dailyRate->end) {
+                    $hoursWorked = $dailyRate->start->diffInMinutes($dailyRate->end) / 60;
+                    $payRate *= $hoursWorked;
+                    $earnedRate *= $hoursWorked;
+                }
+
+                $addition = (float) $dailyRate->addition;
+                $feeding = (float) $dailyRate->feeding;
+                $transportation = (float) $dailyRate->transportation;
+                $employeeDiscount = (float) $dailyRate->employee_discount;
+                $leaderCommission = $collaborator?->is_leader ? 0.0 : (float) $section->leaderComission;
+                $coordinatorValue = (float) ($company->coordinator_value ?? 0);
+                $inssPaid = $company->not_flashing ? 0.0 : $inssDefault;
+                $taxPaid = $earnedRate * ($taxDefault / 100);
+                $payAmount = $payRate + $addition + $feeding - $employeeDiscount;
+                $profit = $earnedRate * (1 - ($taxDefault / 100))
+                    - $payAmount
+                    - $transportation
+                    - $inssPaid
+                    - $leaderCommission
+                    - $coordinatorValue;
+
+                $dailyRate->update([
+                    'hourly_rate' => $section->perHour ? (float) $section->employeePay : $payRate,
+                    'total_time' => $section->perHour ? $this->formatHours($hoursWorked) : $dailyRate->total_time,
+                    'pay_amount' => $payAmount,
+                    'leader_comission' => $leaderCommission,
+                    'feeding' => $feeding,
+                    'inss_paid' => $inssPaid,
+                    'tax_paid' => $taxPaid,
+                    'earned' => $earnedRate,
+                    'profit' => $profit,
+                    'coordinator_id' => $company->coordinator_id,
+                    'coordinator_amount' => $coordinatorValue,
+                ]);
+            }
+
+            $afterSnapshot = DailyRate::whereIn('id', $dailyRateIds)
+                ->get()
+                ->mapWithKeys(function (DailyRate $dailyRate) {
+                    return [$dailyRate->id => $dailyRate->getAttributes()];
+                })->all();
+
+            $auditRecords = [];
+            foreach (array_unique(array_merge(array_keys($beforeSnapshot), array_keys($afterSnapshot))) as $dailyRateId) {
+                $before = $beforeSnapshot[$dailyRateId] ?? null;
+                $after = $afterSnapshot[$dailyRateId] ?? null;
+                $dailyRate = $dailyRates->firstWhere('id', $dailyRateId);
+
+                $changes = [];
+                foreach (array_unique(array_merge(array_keys($before ?? []), array_keys($after ?? []))) as $field) {
+                    $beforeValue = $before[$field] ?? null;
+                    $afterValue = $after[$field] ?? null;
+
+                    if ($beforeValue !== $afterValue) {
+                        $changes[$field] = [
+                            'before' => $beforeValue,
+                            'after' => $afterValue,
+                        ];
+                    }
+                }
+
+                $auditRecords[] = [
+                    'daily_rate_id' => $dailyRateId,
+                    'collaborator_id' => $dailyRate?->collaborator_id,
+                    'collaborator_name' => $dailyRate?->collaborator?->name,
+                    'section_id' => $dailyRate?->section_id,
+                    'operation_id' => $operationId,
+                    'changed' => !empty($changes),
+                    'before' => $before,
+                    'after' => $after,
+                    'changes' => $changes,
+                ];
+            }
+
+            return $auditRecords;
+        });
+
+        $changedRecords = collect($auditRecords)->where('changed', true)->count();
+
+        foreach ($auditRecords as $auditRecord) {
+            Log::info($this->formatDailyRateAuditLog($auditRecord, $batch));
+        }
+
+        Log::info(implode(PHP_EOL, [
+            '========== RECALCULO DE DIARIAS - FIM ==========',
+            "operation_id: {$operationId}",
+            "batch_id: {$batch->id}",
+            'total_records: ' . count($auditRecords),
+            "changed_records: {$changedRecords}",
+            'unchanged_records: ' . (count($auditRecords) - $changedRecords),
+            '=================================================',
+        ]));
+
+        return redirect()->back()->with(
+            'success',
+            "{$dailyRates->count()} diária(s) recalculada(s) para o período do lote."
+        );
+    }
+
+    private function formatHours(float $hours): string
+    {
+        $minutes = (int) round($hours * 60);
+
+        return sprintf('%02d:%02d:00', intdiv($minutes, 60), $minutes % 60);
+    }
+
+    private function formatDailyRateAuditLog(array $auditRecord, FinancialBatches $batch): string
+    {
+        $before = $auditRecord['before'] ?? [];
+        $after = $auditRecord['after'] ?? [];
+        $fields = array_unique(array_merge(array_keys($before), array_keys($after)));
+        $lines = [
+            '',
+            '------------------------------------------------------------',
+            'AUDITORIA DE DIARIA',
+            "operation_id: {$auditRecord['operation_id']}",
+            "batch_id: {$batch->id}",
+            "daily_rate_id: {$auditRecord['daily_rate_id']}",
+            "collaborator_id: " . ($auditRecord['collaborator_id'] ?? 'null'),
+            'collaborator_name: ' . ($auditRecord['collaborator_name'] ?? 'null'),
+            "section_id: " . ($auditRecord['section_id'] ?? 'null'),
+            'status: ' . ($auditRecord['changed'] ? 'ALTERADO' : 'INALTERADO'),
+            'COMPARACAO CAMPO A CAMPO:',
+        ];
+
+        foreach ($fields as $field) {
+            $beforeValue = $before[$field] ?? null;
+            $afterValue = $after[$field] ?? null;
+            $changed = $beforeValue !== $afterValue ? 'SIM' : 'NAO';
+
+            $lines[] = "  {$field}:";
+            $lines[] = '    ANTES:    ' . $this->formatLogValue($beforeValue);
+            $lines[] = '    DEPOIS:   ' . $this->formatLogValue($afterValue);
+            $lines[] = "    ALTERADO: {$changed}";
+        }
+
+        $lines[] = '------------------------------------------------------------';
+
+        return implode(PHP_EOL, $lines);
+    }
+
+    private function formatLogValue(mixed $value): string
+    {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_array($value)) {
+            return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+
+        return (string) $value;
+    }
+
 }
