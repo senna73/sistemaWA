@@ -25,6 +25,14 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
+        if (!User::findByEmail(\App\Support\AccessControl::SUPER_ADMIN_BOOTSTRAP_EMAIL)->exists()) {
+            User::factory()->create([
+                'name' => 'Super Admin',
+                'email' => \App\Support\AccessControl::SUPER_ADMIN_BOOTSTRAP_EMAIL,
+                'role' => 'super_admin',
+            ]);
+        }
+
         $this->call([
             PermissionsSeeder::class,
         ]);

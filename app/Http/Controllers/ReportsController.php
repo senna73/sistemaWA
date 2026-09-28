@@ -11,7 +11,6 @@ use App\Models\DailyRate;
 use App\Models\User;
 use Dompdf\Dompdf;
 
-use Mpdf\Mpdf;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\Facades\DB;

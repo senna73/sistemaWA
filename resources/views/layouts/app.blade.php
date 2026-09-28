@@ -101,97 +101,191 @@
               </a>
             </li>
 
+            @if (auth()->user()?->seesCollaboratorPortal())
+            <li class="menu-item {{ request()->routeIs('portal.show') ? 'active' : '' }}">
+                <a href="{{ route('portal.show') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-id-card"></i>
+                  <div>{{ auth()->user()->isSuperAdmin() ? 'Cadastro do colaborador' : 'Meu cadastro' }}</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('portal.earnings') ? 'active' : '' }}">
+                <a href="{{ route('portal.earnings') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-wallet"></i>
+                  <div>{{ auth()->user()->isSuperAdmin() ? 'Saldo do colaborador' : 'Meu saldo' }}</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('portal.daily-rates') ? 'active' : '' }}">
+                <a href="{{ route('portal.daily-rates') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-calendar"></i>
+                  <div>{{ auth()->user()->isSuperAdmin() ? 'Diárias do colaborador' : 'Diárias' }}</div>
+                </a>
+            </li>
+            @endif
+
+            @can('Acesso Work')
+            <li class="menu-item {{ request()->routeIs('work.home') || request()->routeIs('work.project') || request()->routeIs('work.cliomed') || request()->routeIs('work.demo*') ? 'active' : '' }}">
+                <a href="{{ route('work.home') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-briefcase"></i>
+                  <div>RH Controle</div>
+                </a>
+            </li>
+            @endcan
+            @can('Acesso Work')
+            @can('Solicitar desligamento')
+            <li class="menu-item {{ request()->routeIs('work.request') || request()->routeIs('work.request.store') ? 'active' : '' }}">
+                <a href="{{ route('work.request') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-user-minus"></i>
+                  <div>Solicitar desligamento</div>
+                </a>
+            </li>
+            @endcan
+            @endcan
+            @can('Inbox RH')
+            @if (auth()->user() && app(\App\Services\Work\WorkHubService::class)->seesGestorDuty(auth()->user()))
+            <li class="menu-item {{ request()->routeIs('rh.inbox') ? 'active' : '' }}">
+                <a href="{{ route('rh.inbox') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-task"></i>
+                  <div>Acompanhamento RH</div>
+                </a>
+            </li>
+            @endif
+            @endcan
+
+            @php
+                $adminMenuVisible = auth()->user() && (
+                    auth()->user()->canany([
+                        'Lista de usuários',
+                        'Lista de estabelecimentos',
+                        'Lista de colaboradores',
+                        'Lista de diárias',
+                        'Visualizar e inserir informações financeiras nas diárias',
+                        'Processar boletos e confirmar recebimento',
+                        'Gerir pagamento de colaboradores e custos',
+                        'Gestão dos centros de custo',
+                        'Acesso aos dados de diárias',
+                        'Visualizar livro razão',
+                    ]) || ! auth()->user()->isCollaboratorRole()
+                );
+            @endphp
+            @if ($adminMenuVisible)
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Administração</span></li>
-          
+
+            @can('Lista de usuários')
             <li class="menu-item {{ request()->routeIs('users.index') ? 'active' : '' }}">
                 <a href="{{ route('users.index') }}" class="menu-link">
                   <i class="menu-icon tf-icons bx bx-user"></i>
                   <div data-i18n="Basic">Usuários</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Lista de estabelecimentos')
             <li class="menu-item {{ request()->routeIs('companies.index') ? 'active' : '' }}">
               <a href="{{ route('companies.index') }}" class="menu-link">
                 <i class="menu-icon tf-icons bx bx-store"></i>
                 <div data-i18n="Basic">Estabelecimentos</div>
               </a>
             </li>
+            @endcan
 
+            @can('Lista de colaboradores')
             <li class="menu-item {{ request()->routeIs('collaborators.index') ? 'active' : '' }}">
                 <a href="{{ route('collaborators.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-group"></i>
                     <div data-i18n="Basic">Colaboradores</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Lista de diárias')
             <li class="menu-item {{ request()->routeIs('daily-rate.index') ? 'active' : '' }}">
                 <a href="{{ route('daily-rate.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-calendar-event"></i>
                     <div data-i18n="Basic">Diárias</div>
                 </a>
             </li>
-            
+            @endcan
+
+            @can('Visualizar e inserir informações financeiras nas diárias')
             <li class="menu-item {{ request()->routeIs('finantial-results') ? 'active' : '' }}">
                 <a href="{{ route('finantial-results') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-pie-chart-alt-2"></i>
                     <div data-i18n="Basic">Analytics Financeiro</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Processar boletos e confirmar recebimento')
             <li class="menu-item {{ request()->routeIs('admin.batches.index') ? 'active' : '' }}">
                 <a href="{{ route('admin.batches.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-cog"></i>
                     <div data-i18n="Basic">Processamento</div>
                 </a>
             </li>
+            @endcan
 
-            <li class="menu-item {{ request()->routeIs('admin.collaborator.earnings') ? 'active' : '' }}">
-                <a href="{{ route('admin.collaborator.earnings') }}" class="menu-link">
+            @if (auth()->user()?->isSuperAdmin())
+            <li class="menu-item {{ request()->routeIs('portal.earnings') || request()->routeIs('admin.collaborator.earnings') ? 'active' : '' }}">
+                <a href="{{ route('portal.earnings') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-wallet"></i>
                     <div data-i18n="Basic">Ganhos de Colaborador</div>
                 </a>
             </li>
+            @endif
 
+            @can('Gestão dos centros de custo')
             <li class="menu-item {{ request()->routeIs('admin.leader.cost-center.index') ? 'active' : '' }}">
                 <a href="{{ route('admin.leader.cost-center.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-list-check"></i>
                     <div data-i18n="Basic">Centro de Custo</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Gerir pagamento de colaboradores e custos')
             <li class="menu-item {{ request()->routeIs('admin.finance.processor.index') ? 'active' : '' }}">
                 <a href="{{ route('admin.finance.processor.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-credit-card"></i>
                     <div data-i18n="Basic">Centro de Pagamentos</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Gestão dos centros de custo')
             <li class="menu-item {{ request()->routeIs('cost-centers.index') ? 'active' : '' }}">
                 <a href="{{ route('cost-centers.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-buildings"></i>
                     <div data-i18n="Basic">Gestão de Centros</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Acesso aos dados de diárias')
             <li class="menu-item {{ request()->routeIs('analytics.*') ? 'active' : '' }}">
                 <a href="{{ route('analytics.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-bar-chart-alt-2"></i>
                     <div data-i18n="Basic">Análise de Dados</div>
                 </a>
             </li>
+            @endcan
 
+            @can('Visualizar livro razão')
             <li class="menu-item {{ request()->routeIs('admin.finance.ledger.index') ? 'active' : '' }}">
                 <a href="{{ route('admin.finance.ledger.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-book-content"></i>
                     <div data-i18n="Basic">Capital Empresarial</div>
                 </a>
             </li>
+            @endcan
+            @if (!auth()->user()->isCollaboratorRole())
             <li class="menu-item {{ request()->routeIs('admin.uniforms.*') ? 'active' : '' }}">
                 <a href="{{ route('admin.uniforms.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-closet"></i>
                     <div data-i18n="Basic">Uniformes</div>
                 </a>
             </li>
+            @endif
+            @endif
           </ul>
         </aside>
         <!-- / Menu -->

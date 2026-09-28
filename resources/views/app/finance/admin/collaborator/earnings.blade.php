@@ -2,8 +2,11 @@
     <div class="card">
         <div class="card-body">
             <h5>Saldo em Carteira</h5>
-            <h2 class="text-success">R$ {{ number_format($wallet->balance, 2, ',', '.') }}</h2>
-            <small class="text-muted">A receber: R$ {{ number_format($pendingAmount, 2, ',', '.') }}</small>
+            @if ($wallet)
+                <h2 class="text-success">R$ {{ number_format($wallet->balance, 2, ',', '.') }}</h2>
+            @else
+                <p class="text-muted mb-0">Informe o ID do colaborador para abrir a carteira.</p>
+            @endif
         </div>
     </div>
     

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
+use App\Support\AccessControl;
 
 class User extends Authenticatable
 {
@@ -23,6 +24,10 @@ class User extends Authenticatable
         'email',
         'password',
         'collaborator_id',
+        'role',
+        'mobile',
+        'active',
+        'email_verified_at',
     ];
 
     /**
@@ -45,6 +50,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'active' => 'boolean',
         ];
     }
 
@@ -58,9 +64,101 @@ class User extends Authenticatable
         return self::query()->where('email', '=', $email);
     }
 
+    public function deactivate(): void
+    {
+        $this->active = false;
+        $this->releaseUniqueIdentity();
+        $this->save();
+    }
+
+    public function releaseUniqueIdentity(): void
+    {
+        if (! str_starts_with((string) $this->email, 'deleted.')) {
+            $this->email = sprintf('deleted.%d.%s@archived.invalid', $this->id, bin2hex(random_bytes(3)));
+        }
+
+        $this->collaborator_id = null;
+    }
+
+    public static function releaseInactiveConflicts(?string $email, mixed $collaboratorId = null): void
+    {
+        $email = $email ? strtolower(trim($email)) : null;
+        $collaboratorId = $collaboratorId ? (int) $collaboratorId : null;
+
+        if (! $email && ! $collaboratorId) {
+            return;
+        }
+
+        static::query()
+            ->where('active', false)
+            ->where(function ($query) use ($email, $collaboratorId) {
+                if ($email) {
+                    $query->where('email', $email);
+                }
+
+                if ($collaboratorId) {
+                    $email
+                        ? $query->orWhere('collaborator_id', $collaboratorId)
+                        : $query->where('collaborator_id', $collaboratorId);
+                }
+            })
+            ->get()
+            ->each(function (self $user) {
+                $user->releaseUniqueIdentity();
+                $user->save();
+            });
+    }
+
     public function collaborator()
     {
         return $this->belongsTo(Collaborator::class, 'collaborator_id', 'id');
+    }
+
+    public function isCollaboratorRole(): bool
+    {
+        return in_array($this->role, ['employee', 'collaborator'], true);
+    }
+
+    public function isRh(): bool
+    {
+        return $this->role === 'rh';
+    }
+
+    public function isOwner(): bool
+    {
+        return $this->role === 'super_admin';
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === 'super_admin'
+            || $this->can(AccessControl::PERMISSION_SUPER_ADMIN);
+    }
+
+    public function seesCollaboratorPortal(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->can(AccessControl::PERMISSION_PORTAL) && (bool) $this->collaborator_id;
+    }
+
+    public function roleLabel(): string
+    {
+        $normalized = $this->role;
+
+        return AccessControl::assignableRoles()[$normalized] ?? 'Equipe';
+    }
+
+    public function isAccounting(): bool
+    {
+        return $this->role === 'accounting';
+    }
+
+    public function isCoordinator(): bool
+    {
+        return $this->role === 'coordinator';
     }
 
     public function companies()

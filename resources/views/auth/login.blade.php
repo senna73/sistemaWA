@@ -49,50 +49,52 @@
             <div class="card-body">
 
               <h4 class="mb-2">Bem-vindo ao sistema WA! 👋</h4>
-              <p class="mb-4">Acesse o sistema para iniciar.</p>
+              <p class="mb-4">Informe seu CPF ou e-mail para entrar.</p>
 
-              <form method="POST" action="{{ route('login') }}">
-                @csrf
-                <div class="mb-3">
-                  <label for="email" class="form-label">Email</label>
-                  <input
-                    type="text"
-                    class="form-control"
-                    id="email"
-                    name="email"
-                    placeholder="Enter your email or username"
-                    autofocus
-                  />
-                </div>
-                <div class="mb-3 form-password-toggle">
-                  <div class="d-flex justify-content-between">
+              @if ($errors->any())
+                <div class="alert alert-danger">{{ $errors->first() }}</div>
+              @endif
+
+              @if (($step ?? 'identifier') === 'password')
+                <form method="POST" action="{{ route('login') }}">
+                  @csrf
+                  <input type="hidden" name="identifier" value="{{ $identifier }}" />
+                  <div class="mb-3">
+                    <label class="form-label">E-mail / CPF</label>
+                    <input type="text" class="form-control" value="{{ $identifier }}" disabled />
+                  </div>
+                  <div class="mb-3 form-password-toggle">
                     <label class="form-label" for="password">Senha</label>
-                    {{-- <a href="auth-forgot-password-basic.html">
-                      <small>Forgot Password?</small>
-                    </a> --}}
+                    <div class="input-group input-group-merge">
+                      <input type="password" id="password" class="form-control" name="password" autofocus />
+                      <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
+                    </div>
                   </div>
-                  <div class="input-group input-group-merge">
+                  <div class="mb-3">
+                    <button class="btn btn-primary d-grid w-100" type="submit">Entrar</button>
+                  </div>
+                  <a href="{{ route('login') }}" onclick="event.preventDefault(); this.closest('form') || (window.location='{{ route('login') }}');">Usar outro CPF ou e-mail</a>
+                </form>
+              @else
+                <form method="POST" action="{{ route('login.identify') }}">
+                  @csrf
+                  <div class="mb-3">
+                    <label for="identifier" class="form-label">CPF ou e-mail</label>
                     <input
-                      type="password"
-                      id="password"
+                      type="text"
                       class="form-control"
-                      name="password"
-                      placeholder="&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;&#xb7;"
-                      aria-describedby="password"
+                      id="identifier"
+                      name="identifier"
+                      placeholder="CPF ou e-mail"
+                      value="{{ old('identifier') }}"
+                      autofocus
                     />
-                    <span class="input-group-text cursor-pointer"><i class="bx bx-hide"></i></span>
                   </div>
-                </div>
-                {{-- <div class="mb-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="remember-me" />
-                    <label class="form-check-label" for="remember-me"> Remember Me </label>
+                  <div class="mb-3">
+                    <button class="btn btn-primary d-grid w-100" type="submit">Continuar</button>
                   </div>
-                </div> --}}
-                <div class="mb-3">
-                  <button class="btn btn-primary d-grid w-100" type="submit">Entrar</button>
-                </div>
-              </form>
+                </form>
+              @endif
 
               {{-- <p class="text-center">
                 <span>New on our platform?</span>

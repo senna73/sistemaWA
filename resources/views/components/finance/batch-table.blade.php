@@ -83,7 +83,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="5" style="padding: 60px 24px; text-align: center; color: #9ca3af;">
+                    <td colspan="6" style="padding: 60px 24px; text-align: center; color: #9ca3af;">
                         <i class='bx bx-package' style="font-size: 3.5rem; margin-bottom: 12px; display: block; color: #e5e7eb;"></i>
                         <p style="margin: 0; font-weight: 500;">Nenhum lote financeiro encontrado.</p>
                     </td>

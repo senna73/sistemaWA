@@ -1,10 +1,8 @@
-<div class="flex items-center justify-between mb-4">
-    <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-        Novo Lote de Pagamento
-    </h2>
+<div class="px-4 pt-4 pb-2">
+    <h2 class="h6 mb-0 fw-bold text-dark">Novo Lote de Pagamento</h2>
 </div>
 
-<form id="financial-form" action="{{ route('admin.batches.store') }}" method="POST" class="row g-3 items-end">
+<form id="financial-form" action="{{ route('admin.batches.store') }}" method="POST" class="row g-3 items-end p-4 pt-2">
     @csrf
 
     <div class="col-md-8">
@@ -84,7 +82,7 @@
 
     {{-- Botão Enviar --}}
     <div class="col-md-12">
-        <button type="submit" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-2">
+        <button type="submit" class="btn btn-primary d-inline-flex align-items-center justify-content-center gap-2">
             <i class='bx bx-plus-circle'></i> Adicionar Lote
         </button>
     </div>

@@ -13,6 +13,9 @@ use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\Finance\Admin\LeaderCostCenterController;
 use App\Http\Controllers\Finance\collaborator\CollaboratorFinanceController;
 use App\Http\Controllers\Finance\companies\CompanyAssignmentController;
+use App\Http\Controllers\CollaboratorPortalController;
+use App\Http\Controllers\RhInboxController;
+use App\Http\Controllers\Work\WorkHubController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UniformsController;
 use App\Livewire\CashFlow;
@@ -28,13 +31,86 @@ Route::get('/dashboard', function () {
     return view('dashboard');
 })->middleware(['auth', 'verified'])->name('dashboard');
 
-Route::middleware('auth')->group(function () {
+    Route::middleware('auth')->group(function () {
+    Route::post('/notificacoes/{notification}/lida', [WorkHubController::class, 'readNotification'])->name('notifications.read');
+
+    Route::get('/meu-cadastro', [CollaboratorPortalController::class, 'show'])
+        ->name('portal.show')
+        ->middleware('permission:Portal do colaborador|Super admin');
+    Route::get('/meu-saldo', [CollaboratorPortalController::class, 'earnings'])
+        ->name('portal.earnings')
+        ->middleware('permission:Portal do colaborador|Super admin');
+    Route::get('/minhas-diarias', [CollaboratorPortalController::class, 'dailyRates'])
+        ->name('portal.daily-rates')
+        ->middleware('permission:Portal do colaborador|Super admin');
+    Route::put('/meu-cadastro', [CollaboratorPortalController::class, 'update'])
+        ->name('portal.update')
+        ->middleware('permission:Portal do colaborador');
+    Route::post('/meu-cadastro/demissao', [CollaboratorPortalController::class, 'requestDismissal'])
+        ->name('portal.dismissal')
+        ->middleware('permission:Solicitar demissão');
+
+    Route::middleware('permission:Acesso Work')->prefix('work')->group(function () {
+        Route::get('/', [WorkHubController::class, 'index'])->name('work.home');
+        Route::get('/demo/{board}', [WorkHubController::class, 'demo'])->name('work.demo')->where('board', 'contratacoes|demissoes');
+        Route::get('/demo/{board}/{card}', [WorkHubController::class, 'demoCard'])->name('work.demo.card')->where('board', 'contratacoes|demissoes');
+        Route::get('/cliomed', [WorkHubController::class, 'cliomed'])->name('work.cliomed');
+        Route::post('/cliomed/inconsistencias', [WorkHubController::class, 'resolveCliomed'])->name('work.cliomed.resolve')->middleware('permission:Gerir desligamentos');
+        Route::get('/solicitacao', [WorkHubController::class, 'requestForm'])->name('work.request')->middleware('permission:Solicitar desligamento');
+        Route::post('/solicitacao', [WorkHubController::class, 'storeRequest'])->name('work.request.store')->middleware('permission:Solicitar desligamento');
+        Route::get('/{project}', [WorkHubController::class, 'project'])->name('work.project')->where('project', 'offboarding|recruitment|finance|uniforms');
+        Route::get('/offboarding/processos/{process}', [WorkHubController::class, 'show'])->name('work.offboarding.show');
+        Route::get('/offboarding/processos/{process}/anexos/{attachment}', [WorkHubController::class, 'attachment'])->name('work.offboarding.attachment');
+        Route::post('/offboarding/processos/{process}/documento', [WorkHubController::class, 'storeDocument'])->name('work.offboarding.document')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/verificar', [WorkHubController::class, 'startVerification'])->name('work.offboarding.start')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/registro', [WorkHubController::class, 'markRegistered'])->name('work.offboarding.register')->middleware('permission:Atendimentos da contabilidade');
+        Route::post('/offboarding/processos/{process}/conferencia', [WorkHubController::class, 'conference'])->name('work.offboarding.conference')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/direcao', [WorkHubController::class, 'direction'])->name('work.offboarding.direction');
+        Route::post('/offboarding/processos/{process}/exame', [WorkHubController::class, 'scheduleExam'])->name('work.offboarding.exam')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/aso', [WorkHubController::class, 'aso'])->name('work.offboarding.aso')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/falta', [WorkHubController::class, 'missExam'])->name('work.offboarding.miss')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/dispensa', [WorkHubController::class, 'waiver'])->name('work.offboarding.waiver')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/correio', [WorkHubController::class, 'mail'])->name('work.offboarding.mail')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/docs', [WorkHubController::class, 'docs'])->name('work.offboarding.docs')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/concluir', [WorkHubController::class, 'complete'])->name('work.offboarding.complete')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/transferencia', [WorkHubController::class, 'transfer'])->name('work.offboarding.transfer')->middleware('permission:Gerir desligamentos');
+        Route::post('/offboarding/processos/{process}/cancelar', [WorkHubController::class, 'cancel'])->name('work.offboarding.cancel')->middleware('permission:Gerir desligamentos');
+        Route::post('/inatividade/revisar', [WorkHubController::class, 'reviewInactivity'])->name('work.inactivity.review')->middleware('permission:Gerir desligamentos');
+        Route::post('/inatividade/{audit}/tratativa', [WorkHubController::class, 'inactivityResponse'])->name('work.inactivity.response');
+        Route::post('/inatividade/{audit}/abono', [WorkHubController::class, 'allowance'])->name('work.inactivity.allowance')->middleware('permission:Gerir desligamentos');
+        Route::post('/clinicas/{card}/regularizar', [WorkHubController::class, 'resolveClinic'])->name('work.clinic.resolve')->middleware('permission:Gerir desligamentos');
+        Route::post('/clinicas/semanal', [WorkHubController::class, 'weekly'])->name('work.clinic.weekly')->middleware('permission:Gerir desligamentos');
+        Route::post('/clinicas/precos', [WorkHubController::class, 'storePrice'])->name('work.clinic.prices')->middleware('permission:Gerir desligamentos');
+        Route::post('/custos/{entry}', [WorkHubController::class, 'updateCost'])->name('work.costs.update')->middleware('permission:Gerir desligamentos');
+        Route::post('/cotas', [WorkHubController::class, 'updateQuota'])->name('work.quotas.update')->middleware('permission:Recrutamento');
+        Route::post('/contratacoes', [WorkHubController::class, 'storeHire'])->name('work.hiring.store')->middleware('permission:Recrutamento');
+        Route::post('/contratacoes/{candidate}/documento', [WorkHubController::class, 'hireDocument'])->name('work.hiring.document')->middleware('permission:Recrutamento');
+        Route::post('/contratacoes/{candidate}/registro', [WorkHubController::class, 'verifyHire'])->name('work.hiring.verify')->middleware('permission:Atendimentos da contabilidade');
+        Route::get('/contratacoes/{candidate}/anexos/{attachment}', [WorkHubController::class, 'hireAttachment'])->name('work.hiring.attachment');
+    });
+
+    Route::prefix('rh')->group(function () {
+        Route::get('/inbox', [RhInboxController::class, 'index'])->name('rh.inbox')->middleware('permission:Inbox RH');
+        Route::post('/tarefas/{task}/realocar', [RhInboxController::class, 'decideReallocate'])->name('rh.tasks.reallocate')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/demitir', [RhInboxController::class, 'decideDismiss'])->name('rh.tasks.dismiss')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/realocacao-concluir', [RhInboxController::class, 'completeReallocation'])->name('rh.tasks.reallocation-complete')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/seguir-demissao', [RhInboxController::class, 'proceedToDismissal'])->name('rh.tasks.proceed-dismissal')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/demissao-concluir', [RhInboxController::class, 'completeDismissal'])->name('rh.tasks.dismissal-complete')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/cancelar', [RhInboxController::class, 'cancelProcess'])->name('rh.tasks.cancel')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/inatividade-resolver', [RhInboxController::class, 'resolveInactivity'])->name('rh.tasks.inactivity-resolve')->middleware('permission:Gerir desligamentos');
+        Route::post('/tarefas/{task}/inatividade-desligar', [RhInboxController::class, 'openOffboardingFromInactivity'])->name('rh.tasks.inactivity-offboard')->middleware('permission:Gerir desligamentos');
+    });
+
+    Route::post('/collaborators/{collaborator}/offboarding', [RhInboxController::class, 'requestForCollaborator'])
+        ->name('collaborators.offboarding')
+        ->middleware('permission:Solicitar desligamento');
 
     Route::prefix('users')->group(function () {
         Route::get('/', [UsersController::class, 'index'])->name('users.index')->middleware('permission:Lista de usuários'); // Listar usuários
         Route::get('/table', [UsersController::class, 'table'])->name('users.table')->middleware('permission:Lista de usuários');
         Route::get('/create', [UsersController::class, 'create'])->name('users.create')->middleware('permission:Formulário de criação dos usuários'); // Formulário de criação
         Route::post('/', [UsersController::class, 'store'])->name('users.store')->middleware('permission:Salvar usuários'); // Salvar novo usuário
+        Route::patch('/{id}/role', [UsersController::class, 'updateRole'])->name('users.role')->middleware('permission:Super admin');
         Route::get('/{id}/edit', [UsersController::class, 'edit'])->name('users.edit')->middleware('permission:Formulário de edição dos usuários'); // Formulário de edição
         Route::put('/{id}', [UsersController::class, 'update'])->name('users.update')->middleware('permission:Atualizar usuários'); // Atualizar usuário
         Route::delete('/{id}', [UsersController::class, 'destroy'])->name('users.destroy')->middleware('permission:Deletar usuários'); // Excluir usuário
@@ -129,10 +205,12 @@ Route::middleware(['auth', 'permission:Processar boletos e confirmar recebimento
     Route::post('/receipt', [BatchesController::class, 'confirm_receipt'])->name('admin.batches.confirm-receipt');
 });
 
-Route::middleware(['auth', 'permission:Gerir pagamento de colaboradores e custos'])->group(function () {
+Route::middleware(['auth'])->group(function () {
     Route::get('/collaborator/earnings', [CollaboratorFinanceController::class, 'index'])->name('admin.collaborator.earnings');
     Route::get('/collaborator/earnings/{id}', [CollaboratorFinanceController::class, 'get_wallet'])->name('admin.collaborator.earnings.single');
+});
 
+Route::middleware(['auth', 'permission:Gerir pagamento de colaboradores e custos'])->group(function () {
     Route::prefix('admin/finance/processor')
         ->name('admin.finance.processor.')
         ->group(function () {

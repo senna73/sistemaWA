@@ -41,6 +41,10 @@
                                 placeholder="0" value="{{ old('coordinator_value', $company?->coordinator_value ?? '') }}">
                         </div>
                     </div>
+                    <x-input id="headcount_quota" name="headcount_quota" type="number" label="Cota de vagas da loja" :value="$company?->headcount_quota ?? null" placeholder="Ex.: 17" />
+
+                    <x-input id="contact_email" name="contact_email" type="email" label="E-mail de contato da loja" :value="$company?->contact_email ?? null" placeholder="loja@exemplo.com" />
+
                     <x-input id="uniforms_laid" name="uniforms_laid" type="number" label="Qtd. Uniformes em Loja" :value="$company?->uniforms_laid ?? null" placeholder="Quantidade de uniformes em loja" />
 
                     <div class="mb-3">

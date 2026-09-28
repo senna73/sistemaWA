@@ -1,5 +1,11 @@
 <x-app-layout>
     <div class="container">
+        @if (session('status'))
+            <div class="alert alert-success">{{ session('status') }}</div>
+        @endif
+        @if ($errors->any())
+            <div class="alert alert-danger">{{ $errors->first() }}</div>
+        @endif
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">{{ isset($collaborator?->id) ? 'Editando Colaborador' : 'Cadastrando Colaboradores' }}
@@ -142,6 +148,26 @@
                 @endif
             </div>
         </div>
+
+        @can('Solicitar desligamento')
+            @if ($collaborator?->id)
+                <div class="card mb-4" id="offboarding">
+                    <div class="card-header"><h5 class="mb-0">Pedir demissão</h5></div>
+                    <div class="card-body">
+                        <p class="text-muted mb-3">O botão abre um card no quadro do RH, sempre vinculado a {{ $collaborator->name }}.</p>
+                        <form method="POST" action="{{ route('collaborators.offboarding', $collaborator) }}">
+                            @csrf
+                            <input type="hidden" name="kind" value="dismissal">
+                            <div class="mb-3">
+                                <label class="form-label" for="offboarding-notes">Motivo</label>
+                                <textarea id="offboarding-notes" name="notes" class="form-control" rows="3" required>{{ old('notes') }}</textarea>
+                            </div>
+                            <button class="btn btn-danger" type="submit">Pedir demissão</button>
+                        </form>
+                    </div>
+                </div>
+            @endif
+        @endcan
     </div>
 </x-app-layout>
 

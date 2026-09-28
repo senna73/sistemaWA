@@ -111,6 +111,8 @@ class CompanyController extends Controller
                     'observation' => $request->observation,
                     'coordinator_id' => $request->coordinator_id ?: null,
                     'coordinator_value' => $request->coordinator_value ?? 0, // Recebe o int direto do input nativo
+                    'headcount_quota' => $request->filled('headcount_quota') ? (int) $request->headcount_quota : null,
+                    'contact_email' => $request->contact_email ?: null,
                 ]);
 
             // Cria relação de pertencimento, 1:1
@@ -242,6 +244,8 @@ class CompanyController extends Controller
                 'observation' => $request->observation,
                 'coordinator_id' => $request->coordinator_id ?: null,
                 'coordinator_value' => $coordinatorValueClean,
+                'headcount_quota' => $request->filled('headcount_quota') ? (int) $request->headcount_quota : $company->headcount_quota,
+                'contact_email' => $request->contact_email ?: null,
             ]);
             // Garante que a relação company-city seja 1:1
             DB::table('company_has_city')->updateOrInsert(

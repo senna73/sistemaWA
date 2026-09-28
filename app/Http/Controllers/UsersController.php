@@ -7,32 +7,58 @@ use App\Models\User;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\UserHasCompany;
+use App\Support\AccessControl;
 use Exception;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rules;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Validation\Rule;
 use Yajra\DataTables\Facades\DataTables;
 
 class UsersController extends Controller
 {
-    public function index(){
-        return View('app.users.index');
+    public function index()
+    {
+        return view('app.users.index', [
+            'roles' => AccessControl::assignableRoles(),
+            'canManageRoles' => $this->actorCanManageRoles(),
+        ]);
     }
 
-    public function table(Request $request){
+    public function table(Request $request)
+    {
         $users = User::query()
             ->where('active', '=', true)
+            ->when($request->filled('role'), function ($query) use ($request) {
+                $role = $request->string('role')->toString();
+                $query->where('role', $role);
+            })
             ->orderBy('name');
+
+        $canManageRoles = $this->actorCanManageRoles();
+        $roles = AccessControl::assignableRoles();
 
         return DataTables::of($users)
             ->addColumn('name', function ($user) {
                 return $user->name;
+            })
+            ->addColumn('role', function ($user) use ($canManageRoles, $roles) {
+                $current = $user->role ?: 'employee';
+
+                if (! $canManageRoles) {
+                    return e($user->roleLabel());
+                }
+
+                $options = '';
+                foreach ($roles as $value => $label) {
+                    $selected = $current === $value ? 'selected' : '';
+                    $options .= '<option value="'.e($value).'" '.$selected.'>'.e($label).'</option>';
+                }
+
+                return '<select class="form-select form-select-sm user-role-select" data-user-id="'.$user->id.'">'.$options.'</select>';
             })
             ->addColumn('actions', function ($user) {
                 return '
@@ -46,13 +72,13 @@ class UsersController extends Controller
                     </div>
                 ';
             })
-            ->rawColumns(['actions']) // Permite renderizar HTML no DataTables
+            ->rawColumns(['role', 'actions'])
             ->make(true);
     }
 
-    public function create(){
-
-        return View('app.users.edit', ['permissions' => Permission::all(), 'collaborators' => Collaborator::getActiveLeaders(), 'companies' => Company::getActive()]);
+    public function create()
+    {
+        return view('app.users.edit', $this->formPayload());
     }
 
     public function store_user_has_company($allowedCompanies, User $user)
@@ -79,7 +105,6 @@ class UsersController extends Controller
         try {
 
             DB::beginTransaction();
-            //dd($request->allowed_companies);
 
             $validator = Validator::make($request->all(), [
                 'name' => ['required', 'string', 'max:255'],
@@ -92,6 +117,8 @@ class UsersController extends Controller
                     Rule::unique(User::class)->where('active', true),
                 ],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
+                'role' => ['nullable', Rule::in(AccessControl::roleKeys())],
+                'mobile' => ['nullable', 'string', 'max:20'],
             ], [
                 'name.required' => 'O campo nome é obrigatório.',
                 'name.string' => 'O nome deve ser um texto válido.',
@@ -114,21 +141,24 @@ class UsersController extends Controller
                 ], 422);
             }
 
+            $role = $this->actorCanManageRoles()
+                ? ($request->input('role') ?: 'employee')
+                : 'employee';
+
+            User::releaseInactiveConflicts($request->email, $request->collaborator_id ?: null);
+
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
-                'password' => Hash::make($request->password),
-                'collaborator_id' => $request->collaborator_id,
+                'password' => $request->password,
+                'collaborator_id' => $request->collaborator_id ?: null,
+                'mobile' => $request->mobile,
+                'role' => $role,
             ]);
 
             event(new Registered($user));
 
-
-            //Retorna erro ao nao ter permissões
-            //$user->givePermissionTo(array_keys($request->permissions));
-
-            // Seta as pemissoes no usuário
-            $user->givePermissionTo(array_keys($request->input('permissions', [])));
+            $this->applyRoleAndPermissions($user, $role, $request->input('permissions', []), true);
 
             $this->store_user_has_company($request->allowed_companies, $user);
 
@@ -163,13 +193,10 @@ class UsersController extends Controller
             ->pluck('company_id')
             ->toArray();
 
-        return view('app.users.edit', [
+        return view('app.users.edit', $this->formPayload([
             'user' => $user,
-            'permissions' => Permission::all(),
-            'collaborators' => Collaborator::getActiveLeaders(),
-            'companies' => Company::getActive(),
             'selectedCompanies' => $selectedCompanies,
-        ]);
+        ]));
     }
 
     public function update(Request $request, $id){
@@ -186,6 +213,8 @@ class UsersController extends Controller
                 ->whereNot('id', $id),
             ],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
+            'role' => ['nullable', Rule::in(AccessControl::roleKeys())],
+            'mobile' => ['nullable', 'string', 'max:20'],
         ], [
             'name.required' => 'O campo nome é obrigatório.',
             'name.string' => 'O nome deve ser um texto válido.',
@@ -215,19 +244,19 @@ class UsersController extends Controller
             $user->update([
                 'name' => $request->name,
                 'email' => $request->email,
-                'collaborator_id' => $request->collaborator_id,
+                'collaborator_id' => $request->collaborator_id ?: null,
+                'mobile' => $request->mobile,
             ]);
             if ($request->filled('password')) {
-                $data['password'] = Hash::make($request->password);
+                $user->password = $request->password;
+                $user->save();
             }
-            // Seta as pemissoes no usuário
-            //$user->givePermissionTo(array_keys($request->input('permissions', [])));
-            //$this->store_user_has_company($request->allowed_companies, $user);
-            
-            $permissions = $request->input('permissions', []);
-            $permissionIds = array_keys($permissions, 'on');
 
-            $user->syncPermissions($permissionIds);
+            $role = $this->actorCanManageRoles()
+                ? ($request->input('role') ?: ($user->role ?: 'employee'))
+                : ($user->role ?: 'employee');
+
+            $this->applyRoleAndPermissions($user, $role, $request->input('permissions', []), false);
 
             $this->store_user_has_company($request->allowed_companies, $user);
             
@@ -250,14 +279,39 @@ class UsersController extends Controller
         }
     }
 
+    public function updateRole(Request $request, $id)
+    {
+        abort_unless($this->actorCanManageRoles(), 403);
+
+        $validator = Validator::make($request->all(), [
+            'role' => ['required', Rule::in(AccessControl::roleKeys())],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'title' => 'Oops!',
+                'message' => implode("\n", $validator->errors()->all()),
+                'type' => 'error',
+            ], 422);
+        }
+
+        $user = User::findOrFail($id);
+        $this->applyRoleAndPermissions($user, $request->string('role')->toString(), null, false);
+
+        return response()->json([
+            'title' => 'Sucesso!',
+            'message' => 'Papel atualizado para '.$user->fresh()->roleLabel().'.',
+            'type' => 'success',
+        ]);
+    }
+
     public function destroy($id){
         try {
 
             DB::beginTransaction();
 
             $user = User::find($id);
-            $user->active = false;
-            $user->save();
+            $user->deactivate();
 
             DB::commit();
 
@@ -278,4 +332,69 @@ class UsersController extends Controller
         }
     }
 
+    private function actorCanManageRoles(): bool
+    {
+        return (bool) auth()->user()?->isSuperAdmin();
+    }
+
+    private function formPayload(array $extra = []): array
+    {
+        $canManageRoles = $this->actorCanManageRoles();
+
+        $permissions = Permission::query()
+            ->when(! $canManageRoles, function ($query) {
+                $query->where('name', '!=', AccessControl::PERMISSION_SUPER_ADMIN);
+            })
+            ->get();
+
+        return array_merge([
+            'permissions' => $permissions,
+            'collaborators' => Collaborator::getActiveLeaders(),
+            'companies' => Company::getActive(),
+            'roles' => AccessControl::assignableRoles(),
+            'canManageRoles' => $canManageRoles,
+        ], $extra);
+    }
+
+    private function applyRoleAndPermissions(User $user, string $role, ?array $permissionsInput, bool $isCreate): void
+    {
+        $legacyRoles = ['admin', 'dev', 'company'];
+
+        if (in_array($role, $legacyRoles, true)) {
+            $user->role = $role;
+            $user->save();
+
+            if ($permissionsInput !== null) {
+                $user->syncPermissions($this->permissionIdsFromRequest($user, $permissionsInput, $isCreate));
+            }
+
+            return;
+        }
+
+        AccessControl::applyToUser($user, $role);
+    }
+
+    private function permissionIdsFromRequest(User $user, array $permissionsInput, bool $isCreate): array
+    {
+        $ids = array_keys($permissionsInput, 'on', true);
+        if ($ids === []) {
+            $ids = array_keys($permissionsInput);
+        }
+
+        $ids = array_values(array_filter($ids, fn ($id) => is_numeric($id)));
+
+        $superAdminId = Permission::query()
+            ->where('name', AccessControl::PERMISSION_SUPER_ADMIN)
+            ->value('id');
+
+        if (! $this->actorCanManageRoles()) {
+            $ids = array_filter($ids, fn ($id) => (int) $id !== (int) $superAdminId);
+
+            if (! $isCreate && $superAdminId && $user->hasPermissionTo(AccessControl::PERMISSION_SUPER_ADMIN)) {
+                $ids[] = $superAdminId;
+            }
+        }
+
+        return array_values(array_unique($ids));
+    }
 }

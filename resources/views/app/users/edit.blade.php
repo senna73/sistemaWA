@@ -15,6 +15,28 @@
                         <input type="email" class="form-control" id="basic-default-company" name="email" placeholder="exemplo@exemplo.com" value="{{ $user?->email ?? ''}}" />
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="mobile">Celular / WhatsApp</label>
+                        <input type="text" class="form-control" id="mobile" name="mobile" value="{{ $user?->mobile ?? '' }}" />
+                    </div>
+                    @php
+                        $currentRole = $user?->role ?? 'employee';
+                    @endphp
+                    @if ($canManageRoles)
+                        <div class="mb-3">
+                            <label class="form-label" for="role">Papel</label>
+                            <select class="form-control" id="role" name="role">
+                                @foreach ($roles as $value => $label)
+                                    <option value="{{ $value }}" @selected($currentRole === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @else
+                        <div class="mb-3">
+                            <label class="form-label">Papel</label>
+                            <input type="text" class="form-control" value="{{ $roles[$currentRole] ?? ($user?->roleLabel() ?? 'Equipe') }}" disabled />
+                        </div>
+                    @endif
+                    <div class="mb-3">
                         <label class="form-label" for="collaborator_id">Colaborador</label>
                         <select class="form-control" id="collaborator_id" name="collaborator_id" >
                             <option value="" disabled selected>Selecione um colaborador</option>

@@ -51,7 +51,17 @@ class PermissionsSeeder extends Seeder
         Permission::findOrCreate('Visualizar livro razão');
         Permission::findOrCreate('Acesso aos dados de diárias');
 
+        \App\Support\AccessControl::seed();
+
         $user = User::where('id', '=', 1)->first();
-        $user->givePermissionTo(Permission::all());
+        if ($user) {
+            $user->givePermissionTo(
+                Permission::query()
+                    ->where('name', '!=', \App\Support\AccessControl::PERMISSION_SUPER_ADMIN)
+                    ->get()
+            );
+        }
+
+        \App\Support\AccessControl::ensureBootstrapSuperAdmin();
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Finance\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Collaborator;
 use App\Models\Company;
 use App\Models\CompanyHasSection;
 use App\Models\ConfigTable;
@@ -279,7 +280,6 @@ class BatchesController extends Controller
         }
 
         $company = Company::findOrFail($batch->company_id);
-        $inssDefault = (float) ConfigTable::getValue('inss_default');
         $taxDefault = (float) ConfigTable::getValue('tax_default');
 
         $dailyRates = DailyRate::with('collaborator')
@@ -309,7 +309,7 @@ class BatchesController extends Controller
             '=====================================================',
         ]));
 
-        $auditRecords = DB::transaction(function () use ($dailyRates, $dailyRateIds, $beforeSnapshot, $operationId, $batch, $company, $inssDefault, $taxDefault) {
+        $auditRecords = DB::transaction(function () use ($dailyRates, $dailyRateIds, $beforeSnapshot, $operationId, $batch, $company, $taxDefault) {
             foreach ($dailyRates as $dailyRate) {
                 $section = CompanyHasSection::where('company_id', $dailyRate->company_id)
                     ->where('section_id', $dailyRate->section_id)
@@ -338,9 +338,12 @@ class BatchesController extends Controller
                 $employeeDiscount = (float) $dailyRate->employee_discount;
                 $leaderCommission = $collaborator?->is_leader ? 0.0 : (float) $section->leaderComission;
                 $coordinatorValue = (float) ($company->coordinator_value ?? 0);
-                $inssPaid = $company->not_flashing ? 0.0 : $inssDefault;
+                $inssPaid = Collaborator::inssAmount(
+                    !$company->not_flashing && (bool) $collaborator?->shouldDeductInss()
+                );
                 $taxPaid = $earnedRate * ($taxDefault / 100);
-                $payAmount = $payRate + $addition + $feeding - $employeeDiscount;
+                $payAmount = $payRate + $addition + $feeding - $employeeDiscount - $inssPaid;
+
                 $profit = $earnedRate * (1 - ($taxDefault / 100))
                     - $payAmount
                     - $transportation

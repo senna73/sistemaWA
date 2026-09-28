@@ -13,13 +13,13 @@ use App\Models\CompanyHasSection;
 use App\Models\ConfigTable;
 use App\Models\DailyRate;
 use App\Models\FinancialBatches;
+use App\Models\OffboardingProcess;
 use App\Models\Section;
 use App\Models\UserHasCompany;
 use Carbon\Carbon;
 use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Mpdf\Mpdf;
 use Yajra\DataTables\Facades\DataTables;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -129,7 +129,8 @@ class DailyRateController extends Controller
             'companies' => $companies,
             'sections' => Section::all(),
             'dailyRate' => null,
-            'inss_pago' => ConfigTable::getValue('inss_default'),
+            'inss_amount' => Collaborator::INSS_AMOUNT,
+            'inss_effective_from' => Collaborator::INSS_EFFECTIVE_FROM,
             'imposto_pago' => ConfigTable::getValue('tax_default'),
         ]);
     }
@@ -183,6 +184,10 @@ class DailyRateController extends Controller
                 ], 422);
             }
 
+            if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id)) {
+                return $blocked;
+            }
+
                 if ($this->hasProcessedFinancialBatch($request->company_id, $request->start)) {
                     return response()->json([
                         'type' => 'error',
@@ -205,13 +210,9 @@ class DailyRateController extends Controller
             }
 
 
-            $inss = $request->inss_id;
             $tax = $request->imposto_id;
             if (!$company->not_flashing) {
-                ConfigTable::where('id', 'inss_default')->update(['value' => $request->inss_id]);
                 ConfigTable::where('id', 'tax_default')->update(['value' => $request->imposto_id]);
-            } else {
-                $inss = 0;
             }
 
             $hourlyRate = 0.00;
@@ -224,6 +225,9 @@ class DailyRateController extends Controller
                     $hourlyRate = $section->employeePay;
                 }
             }
+
+            $inssValue = $this->resolveInssAmount($collaborator, $company);
+            $payAmount = (float) Money::unformat((string) $request->employee_pay_id);
 
             DailyRate::create([
                 'collaborator_id' => $request->collaborator_id,
@@ -244,9 +248,9 @@ class DailyRateController extends Controller
                 'transportation' => !empty($request->transport_id) ? Money::unformat($request->transport_id) : 0,
                 'feeding' => !empty($request->feeding_id) ? 10.00 : 0,
                 'addition' => !empty($request->addition) ? Money::unformat($request->addition) : 0,
-                'pay_amount' => Money::unformat($request->employee_pay_id),
+                'pay_amount' => $payAmount,
                 
-                'inss_paid' => !empty($inss) ? Money::unformat($inss) : 0,
+                'inss_paid' => $inssValue,
                 'tax_paid' => !empty($tax) ? Money::unformat($tax) : 0,
                 
                 'earned' => Money::unformat($request->total),
@@ -288,7 +292,8 @@ class DailyRateController extends Controller
             'collaborators' => Collaborator::getActive(),
             'companies' => Company::getActive(),
             'sections' => Section::all(),
-            'inss_pago' => ConfigTable::getValue('inss_default'),
+            'inss_amount' => Collaborator::INSS_AMOUNT,
+            'inss_effective_from' => Collaborator::INSS_EFFECTIVE_FROM,
             'imposto_pago' => ConfigTable::getValue('tax_default'),
         ]);
     }
@@ -337,6 +342,10 @@ class DailyRateController extends Controller
             
         ]);
 
+        if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id)) {
+            return $blocked;
+        }
+
         try {
             DB::beginTransaction();
 
@@ -352,13 +361,9 @@ class DailyRateController extends Controller
                 $section = CompanyHasSection::where('company_id', $request->company_id)->where('section_id', $request->sectionSelect_id)->firstOrFail();
             }
 
-            $inss = $request->inss_id;
             $tax = $request->imposto_id;
             if (!$company->not_flashing) {
-                ConfigTable::where('id', 'inss_default')->update(['value' => $request->inss_id]);
                 ConfigTable::where('id', 'tax_default')->update(['value' => $request->imposto_id]);
-            } else {
-                $inss = 0;
             }
 
             $hourlyRate = 0.00;
@@ -372,7 +377,9 @@ class DailyRateController extends Controller
                 }
             }
 
-            
+            $inssValue = $this->resolveInssAmount($collaborator, $company);
+            $payAmount = (float) Money::unformat((string) $request->employee_pay_id);
+
             DailyRate::findOrFail($id)->update([    
                 'collaborator_id' => $request->collaborator_id,
                 'section_id' => $request->sectionSelect_id,
@@ -392,9 +399,9 @@ class DailyRateController extends Controller
                 'transportation' => !empty($request->transport_id) ? Money::unformat($request->transport_id) : 0,
                 'feeding' => !empty($request->feeding_id) ? 10.00 : 0,
                 'addition' => !empty($request->addition) ? Money::unformat($request->addition) : 0,
-                'pay_amount' => Money::unformat($request->employee_pay_id),
+                'pay_amount' => $payAmount,
                 
-                'inss_paid' => !empty($inss) ? Money::unformat($inss) : 0,
+                'inss_paid' => $inssValue,
                 'tax_paid' => !empty($tax) ? Money::unformat($tax) : 0,
                 
                 'employee_discount' => !empty($request->employee_discount) ? Money::unformat($request->employee_discount) : 0,
@@ -447,6 +454,25 @@ class DailyRateController extends Controller
                 'type' => 'error'
             ], 500);
         }
+    }
+
+    private function resolveInssAmount(?Collaborator $collaborator, $company): float
+    {
+        return Collaborator::inssAmount(
+            !($company->not_flashing ?? false) && (bool) $collaborator?->shouldDeductInss()
+        );
+    }
+
+    private function dailyRateBlockedResponse(mixed $collaboratorId): ?\Illuminate\Http\JsonResponse
+    {
+        if (OffboardingProcess::blocksDailyRatesFor((int) $collaboratorId)) {
+            return response()->json([
+                'type' => 'error',
+                'message' => 'Não é possível lançar diária: este colaborador está em demissão ou já foi desligado.',
+            ], 422);
+        }
+
+        return null;
     }
 
     private function hasProcessedFinancialBatch(int|string $companyId, string $start): bool

@@ -61,4 +61,32 @@ class FinancialBatches extends Model
     {
         return $this->hasMany(FinancialBatcheInvoices::class, 'financial_batch_id');
     }
+
+    public function attendanceStageKey(): string
+    {
+        return self::attendanceStageKeyFor($this->status);
+    }
+
+    public function attendanceStageLabel(): string
+    {
+        return self::attendanceStageLabelFor($this->status);
+    }
+
+    public static function attendanceStageKeyFor(?string $status): string
+    {
+        return match ($status) {
+            'processing' => 'nota',
+            'completed' => 'pagamento',
+            default => 'diarias',
+        };
+    }
+
+    public static function attendanceStageLabelFor(?string $status): string
+    {
+        return match (self::attendanceStageKeyFor($status)) {
+            'nota' => 'Emissão da nota',
+            'pagamento' => 'Pagamento / recebimento',
+            default => 'Diárias do período',
+        };
+    }
 }

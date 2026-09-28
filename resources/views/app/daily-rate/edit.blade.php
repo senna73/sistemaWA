@@ -8,17 +8,19 @@
 
             <div class="card-body">
                 <form id="form-hourly-rate">
-                    <div class="mb-3">
-                        <label class="form-label" for="collaborator_id">Colaborador</label>
-                        <select class="form-control" id="collaborator_id" name="collaborator_id">
-                            <option value="" disabled selected>Selecione um colaborador</option>
-                            @foreach ($collaborators as $colaborator)
-                                <option value="{{ $colaborator->id }}" {{ ($dailyRate?->collaborator_id ?? 0) == $colaborator->id ? 'selected' : '' }}>
-                                    {{ $colaborator->name }}
-                                </option>
-                            @endforeach
-                        </select>
-                    </div>
+<div class="mb-3">
+    <label class="form-label" for="collaborator_id">Colaborador</label>
+    <select class="form-control" id="collaborator_id" name="collaborator_id">
+        <option value="" disabled selected>Selecione um colaborador</option>
+        @foreach ($collaborators as $colaborator)
+            <option value="{{ $colaborator->id }}" {{ ($dailyRate?->collaborator_id ?? 0) == $colaborator->id ? 'selected' : '' }}>
+                {{ $colaborator->name }}
+            </option>
+        @endforeach
+    </select>
+    <!-- Elemento para exibir a data de cadastro -->
+    <small id="collaborator_created_at_info" class="text-muted d-block mt-1"></small>
+</div>
 
                     <div class="mb-3">
                         <label class="form-label" for="company_id">Empresa</label>
@@ -89,7 +91,7 @@
                             <input type="text" name="user_id" hidden value="{{auth()->user()->id}}" />
                             <div class="mb-3 me-3 flex-grow-1">
                                 <label class="form-label" for="inss_id">INSS Pago</label>
-                                <input type="text" class="form-control" id="inss_id" name="inss_id" value="{{ $inss_pago ?? '' }}">
+                                <input type="text" class="form-control" id="inss_id" name="inss_id" value="" readonly>
                             </div>
                         </div>
 
@@ -370,20 +372,51 @@
         const section = sections.find(item => item.id === id);
         return section ? section.name : 'ID não encontrado';
 }
-    function getSelectedColaborator(colaboratorId){
-        $.ajax({
-            url: "/get-colaborator/" + colaboratorId,
-            type: "GET",
-            dataType: "json",
-            success: function (colaborador) {
-                selectedCollaborator = colaborador;
-                calcular();
-            },
-            error: function (xhr) {
-                console.error("Erro ao buscar setores:", xhr.responseText);
+function getSelectedColaborator(colaboratorId){
+    $.ajax({
+        url: "/get-colaborator/" + colaboratorId,
+        type: "GET",
+        dataType: "json",
+        success: function (colaborador) {
+            selectedCollaborator = colaborador;
+
+            // 1. Exibe o created_at na tela e no console
+            if (colaborador && colaborador.created_at) {
+                // Converte o formato do MySQL para data válida no JS
+                let dateObj = new Date(colaborador.created_at.replace(' ', 'T'));
+                let dateFormatted = dateObj.toLocaleString('pt-BR');
+                
+                $('#collaborator_created_at_info').html(`<strong>Cadastrado em:</strong> ${dateFormatted}`);
+                console.log("created_at do Colaborador:", colaborador.created_at, "| Data convertida:", dateObj);
+            } else {
+                $('#collaborator_created_at_info').html('');
             }
-        });
+
+            calcular();
+        },
+        error: function (xhr) {
+            console.error("Erro ao buscar colaborador:", xhr.responseText);
+        }
+    });
+}
+
+function shouldDeductInss(collaborator) {
+    if (!collaborator || !collaborator.created_at) {
+        return false;
     }
+
+    const createdDate = String(collaborator.created_at).slice(0, 10);
+    const inssFrom = @json($inss_effective_from ?? '2026-09-21');
+    return createdDate >= inssFrom;
+}
+
+function inssAmount(deduct) {
+    if (!deduct) {
+        return 0;
+    }
+
+    return Number(@json($inss_amount ?? 5.93));
+}
 
     function getSelectedCompany(companyId){
         $.ajax({
@@ -501,24 +534,28 @@
         }
         pay_amount += addition;
 
-        $('#employee_pay_id').val((pay_amount + feeding - employee_discount).toFixed(2));
-        let inss_discount = $('#inss_id').val();
-        if (selectedCompany && selectedCompany.not_flashing) {
-            inss_discount = 0;
+        const deductInss = shouldDeductInss(selectedCollaborator);
+        let inss_discount = inssAmount(deductInss && !(selectedCompany && selectedCompany.not_flashing));
+        $('#inss_id').val(inss_discount.toFixed(2));
+
+        let employeePayment = pay_amount + feeding - employee_discount;
+        if (deductInss) {
+            employeePayment -= inss_discount;
         }
-        
+
+        $('#employee_pay_id').val(employeePayment.toFixed(2));
+
         let tax = ((parseFloat(document.getElementById('imposto_id').value) || 0) / 100);
-        console.log("imposto: ", tax);
-        
+
         let total = ((earned)).toFixed(2);
-        
-        let total_liq = (total * (1-tax) - (pay_amount + feeding - employee_discount) - transport - inss_discount - leaderComission - coordinator_pay).toFixed(2);
+        let total_liq = (total * (1-tax) - employeePayment - transport - (deductInss ? inss_discount : 0) - leaderComission - coordinator_pay).toFixed(2);
 
         $("#leaderComission_id").val(leaderComission.toFixed(2));
         $('#total').val(parseFloat(total).toFixed(2));
         $('#imposto_paid_id').val((total * tax).toFixed(2));
         $('#total_liq').val(parseFloat(total_liq).toFixed(2));
     }
+
     function difHourly(start, end) {
         try {
             if (start == "" || end == "") return 0;

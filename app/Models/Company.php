@@ -19,6 +19,8 @@ class Company extends Model
         'not_flashing',
         'coordinator_id',
         'coordinator_value',
+        'headcount_quota',
+        'contact_email',
     ];
     public static function getAll()
     {

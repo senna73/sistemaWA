@@ -157,6 +157,7 @@ class CollaboratorsController extends Controller
             $collaborator->fill($data)->save();
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
+            app(\App\Services\Rh\ClinicPanelService::class)->syncPendingCards();
 
             DB::commit();
 
@@ -202,16 +203,19 @@ class CollaboratorsController extends Controller
         return DataTables::of($collaborators)
             ->addColumn('name', fn($collaborator) => $collaborator->name)
             ->addColumn('actions', function ($collaborator) {
-                return '
-                    <div class="demo-inline-spacing">
-                        <a type="button" class="btn btn-icon btn-primary" href="' . route('collaborators.edit', [$collaborator->id]) . '">
+                $edit = '<a type="button" class="btn btn-icon btn-primary" href="' . route('collaborators.edit', [$collaborator->id]) . '">
                             <span class="tf-icons bx bx-pencil"></span>
-                        </a>
-                        <button type="button" class="btn btn-icon btn-danger" onclick="remove(' . $collaborator->id . ')">
+                        </a>';
+                $remove = '<button type="button" class="btn btn-icon btn-danger" onclick="remove(' . $collaborator->id . ')">
                             <span class="tf-icons bx bx-trash"></span>
-                        </button>
-                    </div>
-                ';
+                        </button>';
+                $offboarding = auth()->user()?->can('Solicitar desligamento')
+                    ? '<a type="button" class="btn btn-icon btn-warning" href="' . route('collaborators.edit', [$collaborator->id]) . '#offboarding" title="Desligamento">
+                            <span class="tf-icons bx bx-log-out-circle"></span>
+                        </a>'
+                    : '';
+
+                return '<div class="demo-inline-spacing">'.$edit.$offboarding.$remove.'</div>';
             })
             ->rawColumns(['actions'])
             ->make(true);

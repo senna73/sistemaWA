@@ -1,49 +1,128 @@
 <x-app-layout>
-    <div class="container mx-auto px-4 py-8">
-        {{-- Header --}}
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-8 gap-4">
+    <style>
+        .batches-page .page-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .batches-page .page-header h1 {
+            font-size: 1.35rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin: 0;
+        }
+
+        .batches-page .page-header p {
+            margin: 0.25rem 0 0;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .batches-page .card-surface {
+            background: #fff;
+            border: 1px solid #f3f4f6;
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .batches-page .history-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid #f3f4f6;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+        }
+
+        .batches-page .history-header h2 {
+            font-size: 1rem;
+            font-weight: 700;
+            color: #374151;
+            margin: 0;
+        }
+
+        .batches-page .history-header p {
+            margin: 0.15rem 0 0;
+            font-size: 0.8rem;
+            color: #9ca3af;
+        }
+
+        .batches-pagination {
+            padding: 0.75rem 1.25rem;
+            background: #f9fafb;
+            border-top: 1px solid #f3f4f6;
+        }
+
+        .batches-pagination .pagination {
+            margin: 0;
+            gap: 0.25rem;
+        }
+
+        .batches-pagination .page-link {
+            min-width: 2rem;
+            height: 2rem;
+            padding: 0 0.5rem;
+            font-size: 0.8125rem;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.4rem;
+        }
+
+        .batches-pagination .page-item .page-link svg,
+        .batches-pagination svg {
+            width: 14px !important;
+            height: 14px !important;
+        }
+
+        .batches-pagination nav[role="navigation"] > div:first-child {
+            display: none;
+        }
+
+        .batches-pagination nav[role="navigation"] > div:last-child {
+            display: flex !important;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .batches-pagination p {
+            margin: 0;
+            font-size: 0.8rem;
+        }
+    </style>
+
+    <div class="batches-page">
+        <div class="page-header d-flex flex-column flex-md-row align-items-md-end justify-content-between gap-2">
             <div>
-                <h1 class="text-2xl font-bold text-gray-800">Gestão de Lotes Financeiros</h1>
-                <p class="text-sm text-gray-500">Monitore e processe os fechamentos de períodos.</p>
-            </div>
-            <div class="bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-                @include('app.finance.admin.batches.create') 
+                <h1>Gestão de Lotes Financeiros</h1>
+                <p>Monitore e processe os fechamentos de períodos.</p>
             </div>
         </div>
 
-        {{-- Componente de Resumo --}}
-        <x-finance.batch-stats :batches="$batches" />
+        <div class="card-surface mb-4">
+            @include('app.finance.admin.batches.create')
+        </div>
 
-        {{-- Card de Listagem --}}
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mt-6" style="width: 100%; border-radius: 16px;">
-            
-            {{-- Header do Card: Centralizado e com espaçamento --}}
-            <div style="padding: 24px; border-bottom: 1px solid #f9fafb; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; position: relative;">
-                
-                <h2 style="font-weight: 700; color: #374151; font-size: 1.25rem; margin: 0;">
-                    Histórico de Lotes
-                </h2>
-                
-                <p style="font-size: 0.875rem; color: #9ca3af; margin-top: 4px;">
-                    Consulte o detalhamento de todos os períodos processados
-                </p>
+        <div class="card-surface mb-4">
+            <x-finance.batch-stats :batches="$batches" />
+        </div>
 
-                {{-- Botão de filtro posicionado no canto, para não atrapalhar a centralização do texto --}}
-                <div style="position: absolute; right: 24px; top: 50%; transform: translateY(-50%);">
-                    <button class="text-gray-400 hover:text-gray-600 transition-colors" style="background: none; border: none; cursor: pointer;">
-                        <i class='bx bx-filter-alt text-xl'></i>
-                    </button>
+        <div class="card-surface">
+            <div class="history-header">
+                <div>
+                    <h2>Histórico de Lotes</h2>
+                    <p>Consulte o detalhamento de todos os períodos processados</p>
                 </div>
             </div>
-            
-            {{-- Container da Tabela --}}
-            <div style="width: 100%; overflow-x: auto;">
-                <x-finance.batch-table :batches="$batches" />
-            </div>
 
-            @if($batches->hasPages())
-                <div class="px-6 py-4 bg-gray-50/30 border-t border-gray-50">
-                    {{ $batches->links() }}
+            <x-finance.batch-table :batches="$batches" />
+
+            @if ($batches->hasPages())
+                <div class="batches-pagination">
+                    {{ $batches->onEachSide(1)->links('pagination::bootstrap-5') }}
                 </div>
             @endif
         </div>
