@@ -55,6 +55,32 @@ it('forbids changing roles without super admin permission', function () {
     expect($target->fresh()->role)->toBe('employee');
 });
 
+it('persists checkbox permissions when updating a user', function () {
+    $actor = usersScreenActor(superAdmin: true);
+    $target = User::factory()->create([
+        'name' => 'Lia',
+        'email' => 'lia@example.com',
+        'role' => 'leader',
+    ]);
+    AccessControl::applyToUser($target, 'leader');
+
+    $permission = Permission::findOrCreate('Lista de usuários');
+
+    $this->actingAs($actor)
+        ->put(route('users.update', $target->id), [
+            'name' => 'Lia Atualizada',
+            'email' => 'lia@example.com',
+            'role' => 'leader',
+            'permissions' => [
+                $permission->id => 'on',
+            ],
+        ])
+        ->assertCreated();
+
+    expect($target->fresh()->name)->toBe('Lia Atualizada');
+    expect($target->fresh()->hasPermissionTo('Lista de usuários'))->toBeTrue();
+});
+
 it('ignores role changes on update unless the actor is super admin', function () {
     $actor = usersScreenActor();
     $target = User::factory()->create([

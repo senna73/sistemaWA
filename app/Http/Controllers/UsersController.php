@@ -158,7 +158,7 @@ class UsersController extends Controller
 
             event(new Registered($user));
 
-            $this->applyRoleAndPermissions($user, $role, $request->input('permissions', []), true);
+            $this->applyRoleAndPermissions($user, $role, $this->permissionsFromRequest($request), true);
 
             $this->store_user_has_company($request->allowed_companies, $user);
 
@@ -256,7 +256,7 @@ class UsersController extends Controller
                 ? ($request->input('role') ?: ($user->role ?: 'employee'))
                 : ($user->role ?: 'employee');
 
-            $this->applyRoleAndPermissions($user, $role, $request->input('permissions', []), false);
+            $this->applyRoleAndPermissions($user, $role, $this->permissionsFromRequest($request), false);
 
             $this->store_user_has_company($request->allowed_companies, $user);
             
@@ -356,22 +356,28 @@ class UsersController extends Controller
         ], $extra);
     }
 
+    private function permissionsFromRequest(Request $request): array
+    {
+        $permissions = $request->input('permissions', []);
+
+        return is_array($permissions) ? $permissions : [];
+    }
+
     private function applyRoleAndPermissions(User $user, string $role, ?array $permissionsInput, bool $isCreate): void
     {
         $legacyRoles = ['admin', 'dev', 'company'];
+        $hasFormPermissions = $permissionsInput !== null;
 
         if (in_array($role, $legacyRoles, true)) {
             $user->role = $role;
             $user->save();
-
-            if ($permissionsInput !== null) {
-                $user->syncPermissions($this->permissionIdsFromRequest($user, $permissionsInput, $isCreate));
-            }
-
-            return;
+        } else {
+            AccessControl::applyToUser($user, $role, ! $hasFormPermissions);
         }
 
-        AccessControl::applyToUser($user, $role);
+        if ($hasFormPermissions) {
+            $user->syncPermissions($this->permissionIdsFromRequest($user, $permissionsInput, $isCreate));
+        }
     }
 
     private function permissionIdsFromRequest(User $user, array $permissionsInput, bool $isCreate): array
