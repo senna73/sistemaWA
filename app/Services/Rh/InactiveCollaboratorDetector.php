@@ -69,7 +69,7 @@ class InactiveCollaboratorDetector
 
         $audit->update([
             'coordinator_response' => $response,
-            'coordinator_notes' => $data['coordinator_notes'] ?? null,
+            'coordinator_notes' => $data['coordinator_notes'] ?? $data['justification'] ?? null,
             'scale_date' => $data['scale_date'] ?? null,
             'scale_store' => $data['scale_store'] ?? null,
             'scale_role' => $data['scale_role'] ?? null,
@@ -77,6 +77,20 @@ class InactiveCollaboratorDetector
             'responded_at' => now(),
             'status' => InactivityAudit::STATUS_WATCH,
         ]);
+
+        if ($response === InactivityAudit::RESPONSE_JUSTIFY) {
+            RhTask::query()->firstOrCreate(
+                [
+                    'type' => RhTask::TYPE_INACTIVITY,
+                    'collaborator_id' => $audit->collaborator_id,
+                    'status' => RhTask::STATUS_PENDING,
+                ],
+                [
+                    'title' => sprintf('[ANÁLISE 18 DIAS] - %s', $audit->collaborator?->name ?? 'Colaborador'),
+                    'notes' => 'justificativa:'.($data['justification'] ?? $data['coordinator_notes'] ?? ''),
+                ]
+            );
+        }
 
         return $audit->fresh();
     }
@@ -177,10 +191,6 @@ class InactiveCollaboratorDetector
             return 0;
         }
 
-        if (RhTask::query()->where('collaborator_id', $collaborator->id)->where('type', RhTask::TYPE_INACTIVITY)->where('status', RhTask::STATUS_PENDING)->exists()) {
-            return 0;
-        }
-
         $system = User::query()->where('role', 'rh')->orderBy('id')->first()
             ?? User::query()->orderBy('id')->first();
 
@@ -259,6 +269,12 @@ class InactiveCollaboratorDetector
 
     private function assertResponseFields(string $response, array $data): void
     {
+        if ($response === InactivityAudit::RESPONSE_JUSTIFY && empty($data['justification']) && empty($data['coordinator_notes'])) {
+            throw ValidationException::withMessages(['justification' => 'Informe a justificativa.']);
+        }
+        if ($response === InactivityAudit::RESPONSE_CONTINUE) {
+            return;
+        }
         if ($response === InactivityAudit::RESPONSE_SCALE && (empty($data['scale_date']) || empty($data['scale_store']) || empty($data['scale_role']))) {
             throw ValidationException::withMessages(['scale_date' => 'Informe data prevista, loja e função.']);
         }

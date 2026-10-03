@@ -8,7 +8,7 @@
             $user->can(\App\Support\AccessControl::PERMISSION_DIRECTION) && $user->can(\App\Support\AccessControl::PERMISSION_MANAGE_OFFBOARDING) => 'Você atende a fila do RH e aprova o que já foi conferido.',
             $user->can(\App\Support\AccessControl::PERMISSION_DIRECTION) => 'Sua parte é a aprovação, depois que o RH já conferiu o processo.',
             $user->can(\App\Support\AccessControl::PERMISSION_MANAGE_OFFBOARDING) => 'Sua parte é a fila do RH: atendimento, documentos, exame e clínicas.',
-            $user->isCoordinator() => 'Sua parte é acompanhar a equipe e abrir o pedido quando alguém precisa sair ou ser transferido.',
+            $user->isCoordinator() => 'Sua parte é abrir pedidos de desligamento e solicitar liberações de diária. A gestão da fila fica com o RH.',
             $user->isAccounting() => 'Sua parte é a conferência do INSS e a baixa contábil.',
             default => 'Abaixo estão as atividades da sua função.',
         };
@@ -24,7 +24,7 @@
         <div class="work-hero mb-4">
             <div>
                 <div class="text-muted">WA Serviços · {{ $user->roleLabel() }}</div>
-                <h4 class="mb-1">RH Controle</h4>
+                <h4 class="mb-1">{{ $user->coordinatorWorkbench() ? 'Coordenação' : 'RH Controle' }}</h4>
                 <p class="mb-2">{{ $user->name }}, {{ lcfirst($roleHint) }}</p>
                 <p class="mb-0 text-muted">
                     @if ($areasDue)
@@ -34,11 +34,13 @@
                     @endif
                 </p>
             </div>
+            @unless ($user->coordinatorWorkbench())
             <div class="work-stats">
                 <div><strong>{{ $open_tasks }}</strong><span>Tarefas abertas</span></div>
                 <div><strong>{{ $open_processes }}</strong><span>Processos em andamento</span></div>
                 <div><strong>{{ $done_month }}</strong><span>Concluídos no mês</span></div>
             </div>
+            @endunless
         </div>
 
         @include('work.partials.notifications')

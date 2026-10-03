@@ -19,6 +19,12 @@ class CollaboratorPortalController extends Controller
     {
         $context = $this->portalContext($request);
         $collaborator = $context['collaborator'];
+        $audit = $collaborator
+            ? $collaborator->inactivityAudits()
+                ->whereIn('status', [\App\Models\InactivityAudit::STATUS_OPEN_18, \App\Models\InactivityAudit::STATUS_WATCH])
+                ->latest('id')
+                ->first()
+            : null;
 
         return view('app.portal.show', array_merge($context, [
             'wallet' => $collaborator ? $this->walletFor($collaborator) : null,
@@ -26,12 +32,15 @@ class CollaboratorPortalController extends Controller
                 ? (app(OffboardingService::class)->openProcessFor($collaborator)
                     ?? $collaborator->offboardingProcesses()->latest('id')->first())
                 : null,
+            'inactivityAudit' => $audit,
+            'justifications' => \App\Support\PopCatalog::inactivityJustifications(),
+            'canEditPix' => (bool) $request->user()?->collaborator_id && $collaborator && (int) $request->user()->collaborator_id === (int) $collaborator->id,
         ]));
     }
 
     public function earnings(Request $request): View|RedirectResponse
     {
-        if ($redirect = $this->blockCollaboratorEarningsIfLocked($request)) {
+        if ($redirect = $this->blockUnlessPortalFeature($request, 'seesPortalEarnings', 'Saldo será liberado após a atualização cadastral. Por enquanto use Meu cadastro.')) {
             return $redirect;
         }
 
@@ -55,7 +64,7 @@ class CollaboratorPortalController extends Controller
 
     public function dailyRates(Request $request): View|RedirectResponse
     {
-        if ($redirect = $this->blockCollaboratorEarningsIfLocked($request)) {
+        if ($redirect = $this->blockUnlessPortalFeature($request, 'seesPortalDailyRates', 'Diárias serão liberadas após a atualização cadastral. Por enquanto use Meu cadastro.')) {
             return $redirect;
         }
 
@@ -78,7 +87,81 @@ class CollaboratorPortalController extends Controller
 
     public function update(Request $request): RedirectResponse
     {
-        abort(403);
+        $collaborator = $this->ownCollaborator($request);
+
+        $validated = $request->validate([
+            'pix_key' => ['required', 'string', 'max:255'],
+        ]);
+
+        $this->openCollaboratorRequest($request, $collaborator, 'troca_pix', 'Troca de chave Pix para '.$validated['pix_key'].'.', [
+            'pix_key' => $validated['pix_key'],
+        ]);
+
+        return back()->with('status', 'Pedido de troca de Pix enviado. O RH confere e atualiza o cadastro.');
+    }
+
+    public function requests(Request $request): View
+    {
+        $context = $this->portalContext($request);
+        $collaborator = $context['collaborator'];
+        $demands = $collaborator
+            ? $collaborator->operationalDemands()->with('agendaItem')->latest('id')->paginate(20)->withQueryString()
+            : null;
+
+        return view('app.portal.requests', array_merge($context, [
+            'demands' => $demands,
+            'categories' => \App\Support\PopCatalog::collaboratorRequestCategories(),
+            'canRequest' => (bool) $request->user()?->collaborator_id && $collaborator && (int) $request->user()->collaborator_id === (int) $collaborator->id,
+        ]));
+    }
+
+    public function storeRequest(Request $request): RedirectResponse
+    {
+        $collaborator = $this->ownCollaborator($request);
+        $validated = $request->validate([
+            'category' => ['required', 'in:'.implode(',', array_keys(\App\Support\PopCatalog::collaboratorRequestCategories()))],
+            'request_text' => ['required', 'string', 'max:4000'],
+            'pix_key' => ['nullable', 'string', 'max:255'],
+            'attachments' => ['nullable', 'array', 'max:3'],
+            'attachments.*' => ['file', 'max:5120'],
+        ]);
+
+        if ($validated['category'] === 'troca_pix' && blank($validated['pix_key'] ?? null)) {
+            return back()->withErrors(['pix_key' => 'Informe a nova chave Pix.'])->withInput();
+        }
+
+        $payload = $validated['category'] === 'troca_pix' ? ['pix_key' => $validated['pix_key']] : null;
+        $text = $validated['request_text'];
+        if ($payload) {
+            $text = 'Nova chave Pix: '.$payload['pix_key']."\n".$text;
+        }
+
+        $this->openCollaboratorRequest(
+            $request,
+            $collaborator,
+            $validated['category'],
+            $text,
+            $payload,
+            $request->file('attachments', [])
+        );
+
+        return back()->with('status', 'Solicitação enviada. Virou atividade para o RH.');
+    }
+
+    public function inactivityResponse(Request $request, \App\Models\InactivityAudit $audit, \App\Services\Rh\InactiveCollaboratorDetector $detector): RedirectResponse
+    {
+        $collaborator = $this->ownCollaborator($request);
+        abort_unless((int) $audit->collaborator_id === (int) $collaborator->id, 403);
+
+        $validated = $request->validate([
+            'coordinator_response' => ['required', 'in:justificativa,continuar'],
+            'justification' => ['nullable', 'string'],
+        ]);
+        $detector->recordCoordinatorResponse($audit, $request->user(), $validated);
+
+        return back()->with('status', $validated['coordinator_response'] === 'justificativa'
+            ? 'Justificativa enviada para Análise do RH.'
+            : 'Processo continua até 25 dias.');
     }
 
     public function requestDismissal(Request $request, OffboardingService $offboarding): RedirectResponse
@@ -109,6 +192,37 @@ class CollaboratorPortalController extends Controller
     }
 
     /**
+     * @param  array<string, mixed>|null  $payload
+     * @param  array<int, mixed>  $files
+     */
+    private function openCollaboratorRequest(
+        Request $request,
+        Collaborator $collaborator,
+        string $category,
+        string $text,
+        ?array $payload = null,
+        array $files = [],
+    ): void {
+        $releases = app(\App\Services\Rh\DailyRateReleaseService::class);
+        if ($category === 'troca_pix' && $releases->paymentInProgress($collaborator)) {
+            $text .= ' Pagamento em andamento: não aplicar a chave até o lote fechar.';
+        }
+
+        app(\App\Services\Rh\OperationalDemandService::class)->open(
+            $request->user(),
+            [
+                'name' => $collaborator->name,
+                'mobile' => $collaborator->mobile,
+                'category' => $category,
+                'request_text' => $text,
+                'payload' => $payload,
+            ],
+            is_array($files) ? $files : [],
+            $collaborator
+        );
+    }
+
+    /**
      * @return array{canSearch: bool, collaborator: ?Collaborator, searchResults: Collection, q: string}
      */
     private function portalContext(Request $request): array
@@ -129,17 +243,17 @@ class CollaboratorPortalController extends Controller
         ];
     }
 
-    private function blockCollaboratorEarningsIfLocked(Request $request): ?RedirectResponse
+    private function blockUnlessPortalFeature(Request $request, string $ability, string $message): ?RedirectResponse
     {
         $user = $request->user();
 
-        if (! $user || $user->seesPortalEarningsAndDailyRates()) {
+        if (! $user || $user->{$ability}()) {
             return null;
         }
 
         return redirect()
             ->route('portal.show')
-            ->with('status', 'Saldo e diárias serão liberados após a atualização cadastral. Por enquanto use Meu cadastro.');
+            ->with('status', $message);
     }
 
     private function assertPortalOrSuperAdmin(Request $request): void

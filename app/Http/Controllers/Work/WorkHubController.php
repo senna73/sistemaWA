@@ -17,6 +17,7 @@ use App\Models\OffboardingProcess;
 use App\Models\ProcessAttachment;
 use App\Models\RhCostEntry;
 use App\Models\RhTask;
+use App\Models\User;
 use App\Services\Rh\ClinicPanelService;
 use App\Services\Rh\CliomedReconciler;
 use App\Services\Rh\CliomedReportParser;
@@ -66,8 +67,11 @@ class WorkHubController extends Controller
 
     public function project(string $project, ClinicPanelService $clinics, Request $request): View
     {
+        $user = $request->user();
+        $this->assertProjectAccess($user, $project, $request->string('stage')->toString());
+
         $hub = app(WorkHubService::class);
-        $accountingOnly = $this->seesOnlyAccounting($request->user());
+        $accountingOnly = $this->seesOnlyAccounting($user);
 
         return match ($project) {
             'offboarding' => $this->offboarding($request, $clinics),
@@ -85,8 +89,9 @@ class WorkHubController extends Controller
         };
     }
 
-    public function cliomed(ClinicPanelService $clinics): View
+    public function cliomed(Request $request, ClinicPanelService $clinics): View
     {
+        abort_unless($request->user()?->managesRhWork(), 403);
         $weekly = $clinics->hydrateOkPeople($clinics->ensureWeeklyCheck());
 
         return view('work.cliomed', [
@@ -108,7 +113,7 @@ class WorkHubController extends Controller
         return redirect()->route('work.cliomed', array_filter([
             'bucket' => $request->string('bucket')->toString() ?: null,
             'q' => $request->string('q')->toString() ?: null,
-        ]))->with('status', 'Inconsistência marcada como resolvida.');
+        ]))->with('status', 'Regra da clínica aplicada.');
     }
 
     public function offboarding(Request $request, ClinicPanelService $clinics): View
@@ -119,7 +124,11 @@ class WorkHubController extends Controller
         return view('work.offboarding.index', [
             'stage' => $stage,
             'summary' => $summary,
-            'board' => app(WorkHubService::class)->processStageBoard($stage, $this->seesOnlyAccounting($request->user())),
+            'coordinatorOnly' => $request->user()?->coordinatorWorkbench() ?? false,
+            'board' => $stage === 'inactivity'
+                ? app(WorkHubService::class)->inactivityBoard()
+                : app(WorkHubService::class)->processStageBoard($stage, $this->seesOnlyAccounting($request->user())),
+            'justifications' => \App\Support\PopCatalog::inactivityJustifications(),
         ]);
     }
 
@@ -134,8 +143,9 @@ class WorkHubController extends Controller
                 : 'Nenhum colaborador novo com 25 dias ou mais sem diária.');
     }
 
-    public function show(OffboardingProcess $process): View
+    public function show(Request $request, OffboardingProcess $process): View
     {
+        $this->assertProcessReadable($request->user(), $process);
         $process->load(['collaborator.medicalClinic', 'events.actor', 'attachments.uploader', 'tasks', 'costEntries', 'requestedBy', 'newCompany']);
 
         return view('work.offboarding.show', [
@@ -145,8 +155,40 @@ class WorkHubController extends Controller
         ]);
     }
 
-    public function attachment(OffboardingProcess $process, ProcessAttachment $attachment): StreamedResponse
+    public function collaboratorData(Request $request, OffboardingProcess $process): View
     {
+        $this->assertProcessReadable($request->user(), $process);
+        $process->load(['collaborator.medicalClinic', 'collaborator.homeCompany.coordinator', 'collaborator.user']);
+        $collaborator = $process->collaborator;
+        abort_unless($collaborator, 404);
+
+        $dailies = $collaborator->dailyRates()->with('company')->where('active', true)->orderByDesc('start')->limit(20)->get();
+        $audits = $collaborator->inactivityAudits()->latest('id')->limit(10)->get();
+
+        return view('work.offboarding.collaborator', [
+            'process' => $process,
+            'collaborator' => $collaborator,
+            'dailies' => $dailies,
+            'audits' => $audits,
+        ]);
+    }
+
+    public function cliomedChargePdf(ClinicPanelService $clinics)
+    {
+        $weekly = $clinics->ensureWeeklyCheck();
+        $names = $clinics->chargingNames($weekly);
+        $html = view('work.cliomed-charge-pdf', ['names' => $names])->render();
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->stream('Relatorio de Cobranca - Remocao de Inativos da Clinica.pdf', ['Attachment' => false]);
+    }
+
+    public function attachment(Request $request, OffboardingProcess $process, ProcessAttachment $attachment): StreamedResponse
+    {
+        $this->assertProcessReadable($request->user(), $process);
         abort_unless($attachment->offboarding_process_id === $process->id, 404);
         abort_unless($attachment->existsOnDisk(), 404);
 
@@ -410,15 +452,18 @@ class WorkHubController extends Controller
     public function inactivityResponse(Request $request, InactivityAudit $audit, InactiveCollaboratorDetector $detector): RedirectResponse
     {
         $validated = $request->validate([
-            'coordinator_response' => ['required', 'string'],
+            'coordinator_response' => ['required', 'in:justificativa,continuar'],
             'coordinator_notes' => ['nullable', 'string'],
+            'justification' => ['nullable', 'string'],
             'scale_date' => ['nullable', 'date'],
             'scale_store' => ['nullable', 'string'],
             'scale_role' => ['nullable', 'string'],
         ]);
         $detector->recordCoordinatorResponse($audit, $request->user(), $validated);
 
-        return back()->with('status', 'Tratativa registrada.');
+        return back()->with('status', $validated['coordinator_response'] === InactivityAudit::RESPONSE_JUSTIFY
+            ? 'Justificativa enviada para Análise do RH.'
+            : 'Processo continua até 25 dias.');
     }
 
     public function allowance(Request $request, InactivityAudit $audit, InactiveCollaboratorDetector $detector): RedirectResponse
@@ -564,6 +609,36 @@ class WorkHubController extends Controller
         return $user->can(AccessControl::PERMISSION_ACCOUNTING)
             && ! $user->can(AccessControl::PERMISSION_MANAGE_OFFBOARDING)
             && ! $user->can(AccessControl::PERMISSION_RECRUITMENT);
+    }
+
+    private function assertProjectAccess(?User $user, string $project, string $stage): void
+    {
+        abort_unless($user, 403);
+
+        $allowed = match ($project) {
+            'offboarding' => $user->managesRhWork()
+                || $user->can(AccessControl::PERMISSION_ACCOUNTING)
+                || ($user->coordinatorWorkbench() && $stage === 'inactivity'),
+            'recruitment' => $user->can(AccessControl::PERMISSION_RECRUITMENT)
+                || $user->can(AccessControl::PERMISSION_ACCOUNTING)
+                || $user->isSuperAdmin(),
+            'finance', 'uniforms' => $user->managesRhWork(),
+            default => false,
+        };
+
+        abort_unless($allowed, 403);
+    }
+
+    private function assertProcessReadable(?User $user, OffboardingProcess $process): void
+    {
+        abort_unless($user, 403);
+        abort_unless(
+            $user->managesRhWork()
+            || $user->can(AccessControl::PERMISSION_ACCOUNTING)
+            || $user->can(AccessControl::PERMISSION_DIRECTION)
+            || (int) $process->requested_by_user_id === (int) $user->id,
+            403
+        );
     }
 
     public function updateQuota(Request $request): RedirectResponse

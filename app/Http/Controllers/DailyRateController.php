@@ -13,7 +13,6 @@ use App\Models\CompanyHasSection;
 use App\Models\ConfigTable;
 use App\Models\DailyRate;
 use App\Models\FinancialBatches;
-use App\Models\OffboardingProcess;
 use App\Models\Section;
 use App\Models\UserHasCompany;
 use Carbon\Carbon;
@@ -184,7 +183,7 @@ class DailyRateController extends Controller
                 ], 422);
             }
 
-            if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id)) {
+            if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id, $request->start)) {
                 return $blocked;
             }
 
@@ -265,6 +264,11 @@ class DailyRateController extends Controller
 
             DB::commit();
 
+            app(\App\Services\Rh\DailyRateReleaseService::class)->afterDailyCreated(
+                (int) $request->collaborator_id,
+                $request->start
+            );
+
             return response()->json(['type' => 'success', 'message' => 'Cadastro realizado com sucesso!'], 201);
         } catch (Exception $e) {
 
@@ -342,7 +346,7 @@ class DailyRateController extends Controller
             
         ]);
 
-        if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id)) {
+        if ($blocked = $this->dailyRateBlockedResponse($request->collaborator_id, $request->start)) {
             return $blocked;
         }
 
@@ -463,16 +467,19 @@ class DailyRateController extends Controller
         );
     }
 
-    private function dailyRateBlockedResponse(mixed $collaboratorId): ?\Illuminate\Http\JsonResponse
+    private function dailyRateBlockedResponse(mixed $collaboratorId, mixed $start = null): ?\Illuminate\Http\JsonResponse
     {
-        if (OffboardingProcess::blocksDailyRatesFor((int) $collaboratorId)) {
-            return response()->json([
-                'type' => 'error',
-                'message' => 'Não é possível lançar diária: este colaborador está em demissão ou já foi desligado.',
-            ], 422);
+        $block = app(\App\Services\Rh\DailyRateReleaseService::class)->blockReason((int) $collaboratorId, $start);
+        if (! $block) {
+            return null;
         }
 
-        return null;
+        return response()->json([
+            'type' => 'error',
+            'code' => $block['code'],
+            'message' => $block['message'].' Abra a solicitação de liberação se este lançamento for um ajuste.',
+            'release_url' => route('work.releases.create', ['collaborator_id' => (int) $collaboratorId]),
+        ], 422);
     }
 
     private function hasProcessedFinancialBatch(int|string $companyId, string $start): bool

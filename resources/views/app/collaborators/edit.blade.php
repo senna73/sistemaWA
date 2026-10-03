@@ -16,7 +16,7 @@
                     <div class="mb-3">
                         <label class="form-label" for="basic-default-fullname">Nome</label>
                         <input type="text" class="form-control" id="basic-default-fullname" name="name"
-                            placeholder="João Doe" value="{{ $collaborator?->name ?? '' }}" />
+                            placeholder="João Doe" value="{{ old('name', $collaborator?->name ?? request('name', '')) }}" />
                     </div>
                     <div class="mb-3">
                         <label class="form-label" for="mobile">Celular</label>
@@ -29,6 +29,25 @@
                             placeholder="DD/MM/AAAA" maxlength="10"
                             value="{{ isset($collaborator?->leave_end_date) ? \Carbon\Carbon::parse($collaborator->leave_end_date)->format('d/m/Y') : '' }}">
                     </div>
+
+                    <div class="mb-3">
+                        <label class="form-label" for="hired_at">Data de admissão</label>
+                        <input type="text" class="form-control" id="hired_at" name="hired_at"
+                            placeholder="DD/MM/AAAA" maxlength="10"
+                            value="{{ old('hired_at', isset($collaborator?->hired_at) ? \Carbon\Carbon::parse($collaborator->hired_at)->format('d/m/Y') : request('hired_at', '')) }}">
+                        @if (! ($collaborator?->hired_at ?? request('hired_at')))
+                            <div class="form-text text-warning">Sem admissão conferida. Use a data da lista da contabilidade, não a data de cadastro no sistema.</div>
+                        @endif
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="accounting_code">Código da contabilidade</label>
+                        <input type="text" class="form-control" id="accounting_code" name="accounting_code"
+                            placeholder="000001"
+                            value="{{ old('accounting_code', $collaborator?->accounting_code ?? request('accounting_code', '')) }}">
+                    </div>
+                    @if (request('accounting_row_id'))
+                        <input type="hidden" name="accounting_row_id" value="{{ request('accounting_row_id') }}">
+                    @endif
 
                     <div class="mb-3">
                         <label class="form-label" for="group">Grupo</label>
@@ -210,6 +229,7 @@
             clearIncomplete: true
         });
         dateMask.mask('#leave_end_date');
+        dateMask.mask('#hired_at');
     });
 
     function post() {

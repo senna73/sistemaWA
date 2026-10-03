@@ -41,6 +41,7 @@ class Collaborator extends Model
         'examined_medical_clinic_id',
         'active',
         'hired_at',
+        'accounting_code',
         'job_title',
         'home_company_id',
     ];
@@ -202,6 +203,16 @@ class Collaborator extends Model
         return $this->hasMany(RhTask::class);
     }
 
+    public function agendaItems(): HasMany
+    {
+        return $this->hasMany(AgendaItem::class);
+    }
+
+    public function operationalDemands(): HasMany
+    {
+        return $this->hasMany(OperationalDemand::class);
+    }
+
     public function medicalClinic(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(MedicalClinic::class, 'examined_medical_clinic_id');
@@ -222,26 +233,33 @@ class Collaborator extends Model
         return $this->hasMany(InactivityAllowance::class);
     }
 
-    public function hiredAt(): Carbon
+    public function hiredAt(): ?Carbon
     {
-        if ($this->hired_at) {
-            return $this->hired_at instanceof Carbon ? $this->hired_at : Carbon::parse($this->hired_at);
+        if (! $this->hired_at) {
+            return null;
         }
 
-        return $this->created_at instanceof Carbon ? $this->created_at : Carbon::parse($this->created_at);
+        return $this->hired_at instanceof Carbon ? $this->hired_at : Carbon::parse($this->hired_at);
     }
 
     public function tenureDays($at = null): int
     {
+        $hired = $this->hiredAt();
+        if (! $hired) {
+            return 0;
+        }
+
         $at = $at ? Carbon::parse($at) : now();
 
-        return (int) $this->hiredAt()->startOfDay()->diffInDays($at->copy()->startOfDay());
+        return (int) $hired->copy()->startOfDay()->diffInDays($at->copy()->startOfDay());
     }
 
     public function daysWithoutDaily($at = null): int
     {
         $at = $at ? Carbon::parse($at) : now();
-        $from = $this->lastDailyAt() ?? $this->hiredAt();
+        $from = $this->lastDailyAt() ?? $this->hiredAt() ?? ($this->created_at instanceof Carbon
+            ? $this->created_at
+            : ($this->created_at ? Carbon::parse($this->created_at) : $at));
 
         return (int) $from->copy()->startOfDay()->diffInDays($at->copy()->startOfDay());
     }

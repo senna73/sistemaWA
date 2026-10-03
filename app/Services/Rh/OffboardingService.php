@@ -2,6 +2,7 @@
 
 namespace App\Services\Rh;
 
+use App\Models\AgendaItem;
 use App\Models\Collaborator;
 use App\Models\OffboardingProcess;
 use App\Models\OffboardingStatusEvent;
@@ -81,7 +82,9 @@ class OffboardingService
             $this->recordEvent($process, null, OffboardingProcess::STAGE_ATENDIMENTO_RH, $actor, $notes, 'status');
             $this->syncTask($process, RhTask::TYPE_ATENDIMENTO, $actor);
 
-            $this->removeFromWhatsAppGroups($process, $actor);
+            if ($kind !== OffboardingProcess::KIND_TRANSFER) {
+                $this->spawnGroupRemovalActivity($process, $actor);
+            }
 
             if ($origin === OffboardingProcess::ORIGIN_COLLABORATOR) {
                 $this->whatsApp->notifyCollaboratorAndCoordinator($process, $this->relatedStaff->coordinatorsFor($collaborator));
@@ -417,6 +420,7 @@ class OffboardingService
                 ]);
             }
 
+            $this->completeGroupRemoval($process->fresh(), $rh);
             $this->documents->archiveAdmissionPack($process);
             $this->documents->notifyEstablishments($process->fresh(['collaborator.homeCompany.coordinator']));
             $this->recordEvent($process, $process->status, OffboardingProcess::STAGE_DESLIGADO_CONCLUIDO, $rh, $notes, 'final_docs');
@@ -680,10 +684,62 @@ class OffboardingService
         };
     }
 
-    private function removeFromWhatsAppGroups(OffboardingProcess $process, User $actor): void
+    public function completeGroupRemoval(OffboardingProcess $process, User $actor): void
     {
-        $result = $this->whatsApp->removeFromStoreGroups($process->collaborator);
-        $this->recordEvent($process, $process->status, $process->status, $actor, 'Retirada dos grupos WhatsApp', 'whatsapp_group', $result);
+        if ($process->events()->where('event_type', 'whatsapp_group')->exists()) {
+            $this->closeGroupActivities($process);
+
+            return;
+        }
+
+        $collaborator = $process->collaborator;
+        $result = $this->whatsApp->removeFromStoreGroups($collaborator);
+        if ($collaborator && filled($collaborator->group)) {
+            $collaborator->update(['group' => null]);
+            $result['cleared_group'] = true;
+        }
+
+        $this->recordEvent($process, $process->status, $process->status, $actor, 'Retirada dos grupos WhatsApp e da célula', 'whatsapp_group', $result);
+        $this->closeGroupActivities($process);
+    }
+
+    private function spawnGroupRemovalActivity(OffboardingProcess $process, User $actor): void
+    {
+        $agenda = app(AgendaService::class);
+        $assignee = $agenda->defaultAssignee($actor);
+        if (! $assignee) {
+            return;
+        }
+
+        $exists = AgendaItem::query()
+            ->where('offboarding_process_id', $process->id)
+            ->where('type', 'offboarding_groups')
+            ->whereNotIn('status', [AgendaItem::STATUS_DONE, AgendaItem::STATUS_CANCELLED])
+            ->exists();
+        if ($exists) {
+            return;
+        }
+
+        $name = $process->collaborator?->name ?? 'colaborador';
+        $agenda->create($actor, [
+            'title' => 'Retirar '.$name.' dos grupos (WhatsApp e célula)',
+            'description' => 'POP de desligamento: tirar o colaborador dos grupos da loja e da célula interna.',
+            'assignee_id' => $assignee->id,
+            'type' => 'offboarding_groups',
+            'due_at' => now()->addDay(),
+            'collaborator_id' => $process->collaborator_id,
+            'offboarding_process_id' => $process->id,
+            'company_id' => $process->collaborator?->home_company_id,
+        ]);
+    }
+
+    private function closeGroupActivities(OffboardingProcess $process): void
+    {
+        AgendaItem::query()
+            ->where('offboarding_process_id', $process->id)
+            ->where('type', 'offboarding_groups')
+            ->whereNotIn('status', [AgendaItem::STATUS_DONE, AgendaItem::STATUS_CANCELLED])
+            ->update(['status' => AgendaItem::STATUS_DONE]);
     }
 
     private function assertOpen(OffboardingProcess $process): void

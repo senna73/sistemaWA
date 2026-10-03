@@ -45,8 +45,7 @@ it('keeps collaborator wallet and daily rates locked until cadastral release', f
         ->get(route('portal.show'))
         ->assertOk()
         ->assertSee('Meu cadastro')
-        ->assertDontSee('150,75')
-        ->assertDontSee('Salvar');
+        ->assertDontSee('150,75');
 });
 
 it('blocks a collaborator from looking up another wallet', function () {
@@ -156,17 +155,24 @@ it('lets a super admin open cadastro and daily rates as the collaborator', funct
         ->assertSee('A receber');
 });
 
-it('shows the collaborator cadastro as read only', function () {
+it('lets a collaborator request a pix change as an activity', function () {
+    AccessControl::seed();
+    $rh = User::factory()->create(['role' => 'rh']);
+    AccessControl::applyToUser($rh, 'rh');
     $user = portalCollaboratorUser();
 
     $this->actingAs($user)
         ->put(route('portal.update'), [
-            'name' => 'Nome Alterado',
             'pix_key' => 'chave-nova',
         ])
-        ->assertForbidden();
+        ->assertRedirect();
 
+    expect($user->collaborator->fresh()->pix_key)->not->toBe('chave-nova');
     expect($user->collaborator->fresh()->name)->not->toBe('Nome Alterado');
+    $this->assertDatabaseHas('operational_demands', [
+        'collaborator_id' => $user->collaborator_id,
+        'category' => 'troca_pix',
+    ]);
 });
 
 it('redirects collaborator daily rates until cadastral release', function () {
@@ -196,8 +202,9 @@ it('redirects collaborator daily rates until cadastral release', function () {
         ->assertRedirect(route('portal.show'));
 });
 
-it('lets a collaborator see wallet and daily rates when the cadastral lock is released', function () {
-    config(['portal.collaborator_earnings_enabled' => true]);
+it('lets a collaborator see wallet and daily rates when the super admin releases them', function () {
+    \App\Models\ConfigTable::putBool(\App\Models\ConfigTable::PORTAL_EARNINGS, true);
+    \App\Models\ConfigTable::putBool(\App\Models\ConfigTable::PORTAL_DAILY_RATES, true);
 
     $user = portalCollaboratorUser();
     CollaboratorWallet::query()->create([
@@ -218,4 +225,21 @@ it('lets a collaborator see wallet and daily rates when the cadastral lock is re
         ->assertOk()
         ->assertSee('150,75')
         ->assertSee('Quanto você vai receber');
+});
+
+it('can release earnings without releasing daily rates', function () {
+    \App\Models\ConfigTable::putBool(\App\Models\ConfigTable::PORTAL_EARNINGS, true);
+    \App\Models\ConfigTable::putBool(\App\Models\ConfigTable::PORTAL_DAILY_RATES, false);
+
+    $user = portalCollaboratorUser();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('Meu saldo')
+        ->assertDontSee('Diárias');
+
+    $this->actingAs($user)
+        ->get(route('portal.daily-rates'))
+        ->assertRedirect(route('portal.show'));
 });

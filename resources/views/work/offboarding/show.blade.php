@@ -225,7 +225,12 @@
 
         <div class="ficha-top">
             <h5>{{ $process->kindLabel() }} · {{ $c?->name }}</h5>
-            <a class="ficha-back" href="{{ route('work.project', 'offboarding') }}">Voltar</a>
+            <div class="d-flex gap-2">
+                @if ($c)
+                    <a class="ficha-back" href="{{ route('work.offboarding.collaborator', $process) }}">Ver dados do colaborador</a>
+                @endif
+                <a class="ficha-back" href="{{ route('work.project', 'offboarding') }}">Voltar</a>
+            </div>
         </div>
 
         <div class="ficha-sheet">

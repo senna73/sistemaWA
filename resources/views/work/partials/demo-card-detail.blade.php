@@ -252,6 +252,29 @@
             @endif
 
             <div class="dossier-actions">
+                @if (! empty($card['audit_id']) && ! empty($card['can_act']))
+                    <form method="POST" action="{{ route('work.inactivity.response', $card['audit_id']) }}" class="mb-2">
+                        @csrf
+                        <input type="hidden" name="coordinator_response" value="justificativa">
+                        <select name="justification" class="form-select form-select-sm mb-2" required>
+                            <option value="">Informar justificativa</option>
+                            @foreach (\App\Support\PopCatalog::inactivityJustifications() as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <button class="btn btn-warning btn-sm" type="submit">Informar justificativa</button>
+                    </form>
+                    <form method="POST" action="{{ route('work.inactivity.response', $card['audit_id']) }}">
+                        @csrf
+                        <input type="hidden" name="coordinator_response" value="continuar">
+                        <button class="btn btn-outline-secondary btn-sm" type="submit">Continuar processo</button>
+                    </form>
+                @endif
+
+                @if (! empty($card['release_url']) && empty($card['can_act']))
+                    <a class="btn btn-sm btn-outline-primary mb-2" href="{{ $card['release_url'] }}">Solicitar liberação de diária</a>
+                @endif
+
                 @if (! empty($card['process_id']))
                     <a class="dossier-link" href="{{ route('work.offboarding.show', $card['process_id']) }}">Abrir ficha completa</a>
                 @endif

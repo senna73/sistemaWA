@@ -5,6 +5,7 @@ namespace App\Services\Rh;
 use App\Models\ClinicPendingCard;
 use App\Models\CliomedWeeklyCheck;
 use App\Models\Collaborator;
+use App\Models\InactivityAudit;
 use App\Models\MedicalClinic;
 use App\Models\OffboardingProcess;
 use App\Models\RhTask;
@@ -101,7 +102,13 @@ class ClinicPanelService
             $stages[$status] = OffboardingProcess::query()->where('status', $status)->count();
         }
         $stages['clinic_pending'] = ClinicPendingCard::query()->where('status', ClinicPendingCard::STATUS_OPEN)->count();
-        $stages['inactivity'] = RhTask::query()->whereIn('type', [RhTask::TYPE_INACTIVITY, RhTask::TYPE_INACTIVITY_18])->where('status', RhTask::STATUS_PENDING)->count();
+        $stages['inactivity'] = InactivityAudit::query()
+            ->whereIn('status', [
+                InactivityAudit::STATUS_OPEN_18,
+                InactivityAudit::STATUS_WATCH,
+                InactivityAudit::STATUS_OPEN_25,
+            ])
+            ->count();
 
         return [
             'registered' => $registered,
@@ -284,10 +291,23 @@ class ClinicPanelService
 
     public function resolveInconsistency(CliomedWeeklyCheck $check, string $key): CliomedWeeklyCheck
     {
-        $known = collect($this->pendingInconsistencies($check))->pluck('_key');
-        if (! $known->contains($key)) {
+        $found = null;
+        $bucket = null;
+        foreach ($this->inconsistencyGroups($check) as $group) {
+            foreach ($group['items'] as $item) {
+                if (($item['_key'] ?? '') === $key) {
+                    $found = $item;
+                    $bucket = $group['bucket'];
+                    break 2;
+                }
+            }
+        }
+
+        if (! $found || ! $bucket) {
             return $check;
         }
+
+        $this->applyClinicRule($bucket, $found);
 
         $recon = $check->reconciliation ?? [];
         $resolved = $recon['resolved'] ?? [];
@@ -296,6 +316,65 @@ class ClinicPanelService
         $check->update(['reconciliation' => $recon]);
 
         return $check->fresh();
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    public function applyClinicRule(string $bucket, array $item): void
+    {
+        if ($bucket === 'inactive_in_report' || $bucket === 'ambiguous') {
+            return;
+        }
+
+        $collaboratorId = $item['id'] ?? null;
+        if (! $collaboratorId) {
+            return;
+        }
+
+        $clinic = match ($bucket) {
+            'only_system' => $this->clinicBySlug(OffboardingProcess::CLINIC_CONSERTA),
+            'only_report', 'wrong_clinic' => $this->clinicBySlug(OffboardingProcess::CLINIC_CLIOMED),
+            default => null,
+        };
+
+        if (! $clinic) {
+            return;
+        }
+
+        Collaborator::query()->whereKey($collaboratorId)->update([
+            'examined_medical_clinic_id' => $clinic->id,
+        ]);
+    }
+
+    public function clinicBySlug(string $slug): MedicalClinic
+    {
+        $needle = $slug === OffboardingProcess::CLINIC_CONSERTA ? 'conserta' : 'cliomed';
+        $existing = MedicalClinic::query()->whereRaw('LOWER(name) LIKE ?', ['%'.$needle.'%'])->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        return MedicalClinic::query()->create([
+            'name' => $slug === OffboardingProcess::CLINIC_CONSERTA ? 'Conserta' : 'Cliomed',
+            'active' => true,
+        ]);
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function chargingNames(CliomedWeeklyCheck $check): array
+    {
+        $names = [];
+        foreach (($check->reconciliation['inactive_in_report'] ?? []) as $item) {
+            $name = trim((string) ($item['name'] ?? $item['report_name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+
+        return array_values(array_unique($names));
     }
 
     /**

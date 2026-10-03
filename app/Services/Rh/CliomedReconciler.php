@@ -31,18 +31,36 @@ class CliomedReconciler
                 if ($activeHits->count() === 1) {
                     $hits = $activeHits;
                 } elseif ($activeHits->count() > 1) {
-                    $ambiguous[] = [
-                        'name' => $row['name'],
-                        'sector' => $row['sector'],
-                        'role' => $row['role'],
-                        'candidates' => $activeHits->map(fn (Collaborator $c) => $this->snapshot($c))->values()->all(),
-                    ];
-                    continue;
+                    $sorted = $activeHits->sortByDesc(function (Collaborator $c) {
+                        $stamp = $c->lastDailyAt();
+
+                        return $stamp ? $stamp->timestamp : 0;
+                    })->values();
+                    $first = $sorted->first();
+                    $second = $sorted->get(1);
+                    $firstDaily = $first?->lastDailyAt();
+                    $secondDaily = $second?->lastDailyAt();
+                    if ($firstDaily && (! $secondDaily || $firstDaily->gt($secondDaily))) {
+                        $hits = collect([$first]);
+                    } else {
+                        $ambiguous[] = [
+                            'name' => $row['name'],
+                            'sector' => $row['sector'],
+                            'role' => $row['role'],
+                            'candidates' => $activeHits->map(fn (Collaborator $c) => $this->snapshot($c))->values()->all(),
+                        ];
+                        continue;
+                    }
                 }
             }
 
             if ($hits->count() > 1) {
-                $hits = collect([$hits->sortByDesc('id')->first()]);
+                $sorted = $hits->sortByDesc(function (Collaborator $c) {
+                    $stamp = $c->lastDailyAt();
+
+                    return $stamp ? $stamp->timestamp : 0;
+                });
+                $hits = collect([$sorted->first()]);
             }
 
             if ($hits->isEmpty()) {

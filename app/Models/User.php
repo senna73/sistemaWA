@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Support\AccessControl;
+use App\Models\ConfigTable;
 
 class User extends Authenticatable
 {
@@ -124,6 +125,18 @@ class User extends Authenticatable
         return $this->role === 'rh';
     }
 
+    public function managesRhWork(): bool
+    {
+        return $this->isSuperAdmin()
+            || $this->isRh()
+            || $this->can(AccessControl::PERMISSION_MANAGE_OFFBOARDING);
+    }
+
+    public function coordinatorWorkbench(): bool
+    {
+        return $this->isCoordinator() && ! $this->managesRhWork();
+    }
+
     public function isOwner(): bool
     {
         return $this->role === 'super_admin';
@@ -144,17 +157,27 @@ class User extends Authenticatable
         return $this->can(AccessControl::PERMISSION_PORTAL) && (bool) $this->collaborator_id;
     }
 
-    public function seesPortalEarningsAndDailyRates(): bool
+    public function seesPortalEarnings(): bool
     {
-        if (! $this->seesCollaboratorPortal()) {
-            return false;
-        }
+        return $this->seesPortalFeature(ConfigTable::PORTAL_EARNINGS);
+    }
 
+    public function seesPortalDailyRates(): bool
+    {
+        return $this->seesPortalFeature(ConfigTable::PORTAL_DAILY_RATES);
+    }
+
+    private function seesPortalFeature(string $flag): bool
+    {
         if ($this->isSuperAdmin()) {
             return true;
         }
 
-        return (bool) config('portal.collaborator_earnings_enabled', false);
+        if (! $this->seesCollaboratorPortal()) {
+            return false;
+        }
+
+        return ConfigTable::enabled($flag);
     }
 
     public function roleLabel(): string

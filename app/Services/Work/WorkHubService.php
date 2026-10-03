@@ -42,7 +42,7 @@ class WorkHubService
             'open_tasks' => $openTasks,
             'open_processes' => $openProcesses,
             'done_month' => $doneMonth,
-            'projects' => $this->projects(),
+            'projects' => $this->projects($user),
             'decisions' => $this->decisionsFor($user),
         ];
     }
@@ -103,12 +103,22 @@ class WorkHubService
         return (bool) config('rh.show_hiring');
     }
 
-    public function projects(): array
+    public function projects(?User $user = null): array
     {
-        $rh = $this->rhDutyCount();
-        $gestor = $this->gestorDutyCount();
-        $projects = [
-            [
+        $user ??= auth()->user();
+        if (! $user) {
+            return [];
+        }
+
+        if ($user->coordinatorWorkbench()) {
+            return $this->coordinatorProjects($user);
+        }
+
+        $projects = [];
+        if ($user->managesRhWork() || $user->can(AccessControl::PERMISSION_ACCOUNTING) || $user->isSuperAdmin()) {
+            $rh = $this->rhDutyCount();
+            $gestor = $this->gestorDutyCount();
+            $projects[] = [
                 'key' => 'offboarding',
                 'title' => 'Gestão RH Demissional',
                 'subtitle' => 'Desligamentos, inatividade e transferências.',
@@ -116,43 +126,112 @@ class WorkHubService
                 'needs_action' => ($rh + $gestor) > 0,
                 'kicker' => $rh > 0 ? 'Aguardando o RH' : ($gestor > 0 ? 'Análises do Super admin' : 'Em dia'),
                 'url' => route('work.project', 'offboarding'),
-            ],
-        ];
+            ];
+        }
 
-        $weekly = $this->clinics->weeklyState($this->clinics->ensureWeeklyCheck());
-        $projects[] = [
-            'key' => 'cliomed',
-            'title' => 'Conferência Cliomed',
-            'subtitle' => 'Planilha da semana, inconsistências e fechamento da base.',
-            'badge' => $weekly['badge'],
-            'needs_action' => $weekly['needs_action'],
-            'kicker' => $weekly['kicker'],
-            'tone' => $weekly['tone'],
-            'url' => route('work.cliomed'),
-        ];
+        if ($user->managesRhWork()) {
+            $weekly = $this->clinics->weeklyState($this->clinics->ensureWeeklyCheck());
+            $projects[] = [
+                'key' => 'cliomed',
+                'title' => 'Conferência Cliomed',
+                'subtitle' => 'Planilha da semana, inconsistências e fechamento da base.',
+                'badge' => $weekly['badge'],
+                'needs_action' => $weekly['needs_action'],
+                'kicker' => $weekly['kicker'],
+                'tone' => $weekly['tone'],
+                'url' => route('work.cliomed'),
+            ];
+        }
 
-        $financePending = FinancialBatches::query()->whereIn('status', ['pending', 'processing'])->count();
-        $projects[] = [
-            'key' => 'finance',
-            'title' => 'Financeiro e DRE',
-            'subtitle' => 'Entradas, saídas e resultados por loja.',
-            'badge' => $financePending.' pendências',
-            'needs_action' => $financePending > 0,
-            'kicker' => $financePending > 0 ? 'Pendência financeira' : 'Em dia',
-            'url' => route('work.project', 'finance'),
-        ];
-        $uniformTasks = CollaboratorUniform::query()->whereNull('delivered_at')->count();
-        $projects[] = [
-            'key' => 'uniforms',
-            'title' => 'Operação e uniformes',
-            'subtitle' => 'Solicitações, estoque e entregas.',
-            'badge' => $uniformTasks.' tarefas',
-            'needs_action' => $uniformTasks > 0,
-            'kicker' => $uniformTasks > 0 ? 'Entrega pendente' : 'Em dia',
-            'url' => route('work.project', 'uniforms'),
-        ];
+        if ($user->can(\App\Support\PopCatalog::PERMISSION_ACCOUNTING_LIST) || $user->isSuperAdmin()) {
+            $openAccounting = \App\Models\AccountingListRow::query()->whereNull('resolved_at')->where('bucket', '!=', \App\Models\AccountingListRow::BUCKET_OK)->count();
+            $projects[] = [
+                'key' => 'accounting',
+                'title' => 'Conferência da contabilidade',
+                'subtitle' => 'A lista da contabilidade é a base oficial. Bata um a um o que estiver fora do padrão.',
+                'badge' => $openAccounting.' desvios',
+                'needs_action' => $openAccounting > 0,
+                'kicker' => $openAccounting > 0 ? 'Fora do padrão' : 'Em dia',
+                'url' => route('work.accounting'),
+            ];
+        }
+
+        if ($user->managesRhWork()) {
+            $pendingReleases = \App\Models\DailyRateReleaseRequest::query()
+                ->where('status', \App\Models\DailyRateReleaseRequest::STATUS_PENDING)
+                ->count();
+            $projects[] = [
+                'key' => 'releases',
+                'title' => 'Liberações de diária',
+                'subtitle' => 'Aprovar ou recusar pedidos de lançamento fora do bloqueio.',
+                'badge' => $pendingReleases.' pendentes',
+                'needs_action' => $pendingReleases > 0,
+                'kicker' => $pendingReleases > 0 ? 'Aguardando o RH' : 'Em dia',
+                'url' => route('work.releases.index'),
+            ];
+
+            $financePending = FinancialBatches::query()->whereIn('status', ['pending', 'processing'])->count();
+            $projects[] = [
+                'key' => 'finance',
+                'title' => 'Financeiro e DRE',
+                'subtitle' => 'Entradas, saídas e resultados por loja.',
+                'badge' => $financePending.' pendências',
+                'needs_action' => $financePending > 0,
+                'kicker' => $financePending > 0 ? 'Pendência financeira' : 'Em dia',
+                'url' => route('work.project', 'finance'),
+            ];
+            $uniformTasks = CollaboratorUniform::query()->whereNull('delivered_at')->count();
+            $projects[] = [
+                'key' => 'uniforms',
+                'title' => 'Operação e uniformes',
+                'subtitle' => 'Solicitações, estoque e entregas.',
+                'badge' => $uniformTasks.' tarefas',
+                'needs_action' => $uniformTasks > 0,
+                'kicker' => $uniformTasks > 0 ? 'Entrega pendente' : 'Em dia',
+                'url' => route('work.project', 'uniforms'),
+            ];
+        }
 
         return $projects;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function coordinatorProjects(User $user): array
+    {
+        $pendingReleases = \App\Models\DailyRateReleaseRequest::query()
+            ->where('requested_by', $user->id)
+            ->where('status', \App\Models\DailyRateReleaseRequest::STATUS_PENDING)
+            ->count();
+
+        $openInactivity = InactivityAudit::query()
+            ->whereIn('status', [
+                InactivityAudit::STATUS_OPEN_18,
+                InactivityAudit::STATUS_WATCH,
+            ])
+            ->count();
+
+        return [
+            [
+                'key' => 'releases',
+                'title' => 'Liberação de diária',
+                'subtitle' => 'Peça ao RH a liberação para lançar uma diária bloqueada.',
+                'badge' => $pendingReleases > 0 ? $pendingReleases.' enviadas' : 'Solicitar',
+                'needs_action' => true,
+                'kicker' => 'Pedido do coordenador',
+                'url' => route('work.releases.create'),
+            ],
+            [
+                'key' => 'inactivity',
+                'title' => 'Inatividade da equipe',
+                'subtitle' => 'Justifique 18 dias sem diária ou peça a liberação.',
+                'badge' => $openInactivity > 0 ? $openInactivity.' abertas' : 'Acompanhar',
+                'needs_action' => $openInactivity > 0,
+                'kicker' => $openInactivity > 0 ? 'Resposta do coordenador' : 'Em dia',
+                'url' => route('work.project', ['project' => 'offboarding', 'stage' => 'inactivity']),
+            ],
+        ];
     }
 
     public function storeBoard(?string $stage = null): array
@@ -428,6 +507,67 @@ class WorkHubService
             'openings' => 0,
             'excess_count' => 0,
             'process_count' => (int) $columnList->sum(fn (array $column) => count($column['cards'])),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function inactivityBoard(): array
+    {
+        $audits = InactivityAudit::query()
+            ->with(['collaborator.homeCompany'])
+            ->whereIn('status', [
+                InactivityAudit::STATUS_OPEN_18,
+                InactivityAudit::STATUS_WATCH,
+                InactivityAudit::STATUS_OPEN_25,
+            ])
+            ->latest('id')
+            ->get();
+
+        $columns = [
+            'open_18' => ['id' => 'open_18', 'name' => '18 dias sem diária', 'city' => null, 'cards' => []],
+            'watch' => ['id' => 'watch', 'name' => 'Acompanhamento', 'city' => null, 'cards' => []],
+            'open_25' => ['id' => 'open_25', 'name' => 'Revisão 25 dias sem diária', 'city' => null, 'cards' => []],
+        ];
+
+        foreach ($audits as $audit) {
+            $collaborator = $audit->collaborator;
+            if (! $collaborator) {
+                continue;
+            }
+            $key = match ($audit->status) {
+                InactivityAudit::STATUS_OPEN_25 => 'open_25',
+                InactivityAudit::STATUS_WATCH => 'watch',
+                default => 'open_18',
+            };
+            $columns[$key]['cards'][] = [
+                'slug' => 'inactivity-'.$audit->id,
+                'audit_id' => $audit->id,
+                'process_id' => $audit->offboarding_process_id,
+                'style' => 'opening-slot',
+                'tag' => $audit->status === InactivityAudit::STATUS_OPEN_25 ? 'Revisão 25 dias' : '18 dias sem diária',
+                'title' => $collaborator->name,
+                'name' => $collaborator->name,
+                'store' => $collaborator->homeCompany?->name ?? ($collaborator->group ?: '—'),
+                'body' => $audit->days_without_daily.' dias sem diária',
+                'days_without_daily' => $audit->days_without_daily,
+                'justify_url' => route('work.inactivity.response', $audit),
+                'release_url' => route('work.releases.create', ['collaborator_id' => $collaborator->id]),
+                'can_act' => $audit->status !== InactivityAudit::STATUS_OPEN_25,
+            ];
+        }
+
+        $columnList = collect(array_values($columns));
+
+        return [
+            'columns' => $columnList,
+            'store_count' => $columnList->count(),
+            'opening_count' => (int) $columnList->sum(fn (array $column) => count($column['cards'])),
+            'openings' => 0,
+            'excess_count' => 0,
+            'process_count' => (int) $columnList->sum(fn (array $column) => count($column['cards'])),
+            'inactivity' => true,
         ];
     }
 

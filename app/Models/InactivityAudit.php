@@ -26,6 +26,10 @@ class InactivityAudit extends Model
 
     public const RESPONSE_WAITING = 'aguardando_colaborador';
 
+    public const RESPONSE_JUSTIFY = 'justificativa';
+
+    public const RESPONSE_CONTINUE = 'continuar';
+
     protected $fillable = [
         'collaborator_id',
         'status',

@@ -5,9 +5,14 @@
                 <h4 class="mb-1">Usuários</h4>
                 <p class="text-muted mb-0">Filtre a equipe por papel e gerencie o acesso de cada conta.</p>
             </div>
-            <a href="{{ route('users.create') }}" class="btn btn-primary">
-                <i class="bx bx-plus me-1"></i> Cadastrar usuário
-            </a>
+            <div class="d-flex gap-2">
+                <a href="{{ route('users.deleted') }}" class="btn btn-outline-warning">
+                    <i class="bx bx-user-x me-1"></i> Apagados
+                </a>
+                <a href="{{ route('users.create') }}" class="btn btn-primary">
+                    <i class="bx bx-plus me-1"></i> Cadastrar usuário
+                </a>
+            </div>
         </div>
 
         <div class="card mb-4">

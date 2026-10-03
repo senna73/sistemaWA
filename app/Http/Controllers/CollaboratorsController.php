@@ -106,6 +106,8 @@ class CollaboratorsController extends Controller
                 'pix_key'           => ['required'],
                 'medical_clinic_id' => ['nullable', 'exists:medical_clinics,id'],
                 'leave_end_date'    => ['nullable', 'date_format:d/m/Y'],
+                'hired_at'          => ['nullable', 'date_format:d/m/Y'],
+                'accounting_code'   => ['nullable', 'string', 'max:20'],
                 'uniform_size'      => ['nullable', 'string', Rule::in(['PP', 'P', 'M', 'G', 'GG', 'XG', 'EXG'])],
             ], [
                 'name.required'              => 'O campo nome é obrigatório.',
@@ -116,6 +118,7 @@ class CollaboratorsController extends Controller
                 'pix_key.required'           => 'O campo Chave Pix é obrigatório.',
                 'medical_clinic_id.exists'   => 'A clínica médica selecionada é inválida.',
                 'leave_end_date.date_format' => 'A data de fim da licença/afastamento deve ser uma data válida no formato DD/MM/AAAA.',
+                'hired_at.date_format'       => 'A data de admissão deve ser uma data válida no formato DD/MM/AAAA.',
                 'uniform_size.in'            => 'O tamanho do uniforme selecionado é inválido.',
             ]);
 
@@ -136,6 +139,36 @@ class CollaboratorsController extends Controller
                 }
             }
 
+            $hiredAt = null;
+            if ($request->filled('hired_at')) {
+                try {
+                    $hiredAt = Carbon::createFromFormat('d/m/Y', $request->hired_at)->startOfDay();
+                } catch (\Exception $e) {
+                    $hiredAt = Carbon::parse($request->hired_at)->startOfDay();
+                }
+            }
+
+            $accountingCode = $request->filled('accounting_code')
+                ? str_pad(preg_replace('/\D/', '', (string) $request->accounting_code) ?: '', 6, '0', STR_PAD_LEFT)
+                : null;
+            if ($accountingCode === '000000') {
+                $accountingCode = null;
+            }
+
+            if ($accountingCode) {
+                $taken = Collaborator::query()
+                    ->when($id, fn ($query) => $query->where('id', '!=', $id))
+                    ->where('accounting_code', $accountingCode)
+                    ->exists();
+                if ($taken) {
+                    return response()->json([
+                        'title' => 'Erro na validação',
+                        'message' => 'Este código da contabilidade já está em outro cadastro.',
+                        'type' => 'error',
+                    ], 422);
+                }
+            }
+
             $data = [
                 'name'                       => $request->name,
                 'document'                   => Number::onlyNumber($request->document),
@@ -151,6 +184,8 @@ class CollaboratorsController extends Controller
                 'examined_medical_clinic_id' => $request->medical_clinic_id ?: null,
                 'leave_end_date'             => $leaveEndDate,
                 'uniform_size'               => $request->uniform_size ?: null,
+                'hired_at'                   => $hiredAt,
+                'accounting_code'            => $accountingCode,
             ];
 
             $collaborator = $id ? Collaborator::findOrFail($id) : new Collaborator();
@@ -158,6 +193,14 @@ class CollaboratorsController extends Controller
 
             $this->city_has_collaborator($collaborator, $request->input('cities_can_work', []));
             app(\App\Services\Rh\ClinicPanelService::class)->syncPendingCards();
+
+            if ($request->filled('accounting_row_id')) {
+                app(\App\Services\Rh\AccountingListService::class)->markCreatedFromRow(
+                    (int) $request->input('accounting_row_id'),
+                    $collaborator,
+                    $request->user()
+                );
+            }
 
             DB::commit();
 
@@ -283,20 +326,68 @@ class CollaboratorsController extends Controller
         return $dompdf->stream('colaboradores.pdf', ['Attachment' => false]);
     }
 
+    public function deleted()
+    {
+        return view('app.collaborators.deleted');
+    }
+
+    public function deletedTable()
+    {
+        $collaborators = Collaborator::query()
+            ->where('active', false)
+            ->withCount(['dailyRates as daily_rates_count' => function ($query) {
+                $query->where('active', true);
+            }])
+            ->orderBy('name');
+
+        return DataTables::of($collaborators)
+            ->addColumn('name', fn ($collaborator) => $collaborator->name)
+            ->addColumn('document', fn ($collaborator) => $collaborator->document)
+            ->addColumn('group', fn ($collaborator) => $collaborator->group ?: '-')
+            ->addColumn('daily_rates_count', fn ($collaborator) => (int) $collaborator->daily_rates_count)
+            ->addColumn('updated_at', fn ($collaborator) => optional($collaborator->updated_at)->format('d/m/Y H:i'))
+            ->addColumn('actions', function ($collaborator) {
+                $name = e($collaborator->name);
+                $reportUrl = route('collaborators.report', ['id' => $collaborator->id, 'type' => '__TYPE__']);
+
+                return '<div class="demo-inline-spacing">
+                    <button type="button" class="btn btn-icon btn-info" title="Relatórios"
+                        onclick="openDeletedReports('.$collaborator->id.', \''.addslashes($name).'\', \''.$reportUrl.'\')">
+                        <span class="tf-icons bx bx-file"></span>
+                    </button>
+                </div>';
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
+    }
+
+    public function report(Request $request, string $id, string $type)
+    {
+        Collaborator::findOrFail($id);
+
+        $request->merge([
+            'collaborator_id' => [$id],
+            'user_id' => null,
+        ]);
+
+        return $this->dispatchPersonReport($request, $type);
+    }
+
     public function destroy(string $id)
     {
         try {
             DB::beginTransaction();
 
-            $user = Collaborator::findOrFail($id);
-            $user->active = false;
-            $user->save();
+            $collaborator = Collaborator::findOrFail($id);
+            $collaborator->active = false;
+            $collaborator->save();
+            $collaborator->user?->deactivate();
 
             DB::commit();
 
             return response()->json([
                 'message' => 'Colaborador removido com sucesso!',
-                'data'    => $user
+                'data'    => $collaborator
             ], 200);
         } catch (Exception $exception) {
             DB::rollBack();
@@ -313,5 +404,16 @@ class CollaboratorsController extends Controller
     {
         $collaborator = Collaborator::where('id', $id)->first();
         return $collaborator?->pix_key ?? "";
+    }
+
+    private function dispatchPersonReport(Request $request, string $type)
+    {
+        $reports = app(ReportsController::class);
+
+        return match ($type) {
+            'registers' => $reports->registers($request),
+            'daily-rates' => $reports->dailyRates($request),
+            default => abort(404),
+        };
     }
 }

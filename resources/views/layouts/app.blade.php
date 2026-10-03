@@ -108,13 +108,15 @@
                   <div>{{ auth()->user()->isSuperAdmin() ? 'Cadastro do colaborador' : 'Meu cadastro' }}</div>
                 </a>
             </li>
-            @if (auth()->user()?->seesPortalEarningsAndDailyRates())
+            @if (auth()->user()?->seesPortalEarnings())
             <li class="menu-item {{ request()->routeIs('portal.earnings') ? 'active' : '' }}">
                 <a href="{{ route('portal.earnings') }}" class="menu-link">
                   <i class="menu-icon tf-icons bx bx-wallet"></i>
                   <div>{{ auth()->user()->isSuperAdmin() ? 'Saldo do colaborador' : 'Meu saldo' }}</div>
                 </a>
             </li>
+            @endif
+            @if (auth()->user()?->seesPortalDailyRates())
             <li class="menu-item {{ request()->routeIs('portal.daily-rates') ? 'active' : '' }}">
                 <a href="{{ route('portal.daily-rates') }}" class="menu-link">
                   <i class="menu-icon tf-icons bx bx-calendar"></i>
@@ -122,13 +124,35 @@
                 </a>
             </li>
             @endif
+            <li class="menu-item {{ request()->routeIs('portal.requests*') ? 'active' : '' }}">
+                <a href="{{ route('portal.requests') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-send"></i>
+                  <div>{{ auth()->user()->isSuperAdmin() ? 'Solicitações do colaborador' : 'Solicitações' }}</div>
+                </a>
+            </li>
             @endif
 
             @can('Acesso Work')
-            <li class="menu-item {{ request()->routeIs('work.home') || request()->routeIs('work.project') || request()->routeIs('work.cliomed') || request()->routeIs('work.demo*') ? 'active' : '' }}">
+            <li class="menu-item {{ request()->routeIs('work.home') || request()->routeIs('work.project') || request()->routeIs('work.cliomed') || request()->routeIs('work.accounting') || request()->routeIs('work.releases*') || request()->routeIs('work.demo*') ? 'active' : '' }}">
                 <a href="{{ route('work.home') }}" class="menu-link">
                   <i class="menu-icon tf-icons bx bx-briefcase"></i>
                   <div>RH Controle</div>
+                </a>
+            </li>
+            @endcan
+            @canany(['Abrir demanda', 'Atender demanda', 'Conferir demanda'])
+            <li class="menu-item {{ request()->routeIs('demands.*') ? 'active' : '' }}">
+                <a href="{{ route('demands.index') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-message-square-dots"></i>
+                  <div>Demandas</div>
+                </a>
+            </li>
+            @endcanany
+            @can('Agenda RH')
+            <li class="menu-item {{ request()->routeIs('agenda.*') ? 'active' : '' }}">
+                <a href="{{ route('agenda.index') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-calendar-event"></i>
+                  <div>Agenda</div>
                 </a>
             </li>
             @endcan
@@ -179,6 +203,12 @@
                   <div data-i18n="Basic">Usuários</div>
                 </a>
             </li>
+            <li class="menu-item {{ request()->routeIs('users.deleted') ? 'active' : '' }}">
+                <a href="{{ route('users.deleted') }}" class="menu-link">
+                  <i class="menu-icon tf-icons bx bx-user-x"></i>
+                  <div data-i18n="Basic">Usuários apagados</div>
+                </a>
+            </li>
             @endcan
 
             @can('Lista de estabelecimentos')
@@ -195,6 +225,12 @@
                 <a href="{{ route('collaborators.index') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-group"></i>
                     <div data-i18n="Basic">Colaboradores</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('collaborators.deleted') ? 'active' : '' }}">
+                <a href="{{ route('collaborators.deleted') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-user-x"></i>
+                    <div data-i18n="Basic">Colaboradores apagados</div>
                 </a>
             </li>
             @endcan
@@ -231,6 +267,12 @@
                 <a href="{{ route('portal.earnings') }}" class="menu-link">
                     <i class="menu-icon tf-icons bx bx-wallet"></i>
                     <div data-i18n="Basic">Ganhos de Colaborador</div>
+                </a>
+            </li>
+            <li class="menu-item {{ request()->routeIs('settings.*') ? 'active' : '' }}">
+                <a href="{{ route('settings.index') }}" class="menu-link">
+                    <i class="menu-icon tf-icons bx bx-cog"></i>
+                    <div data-i18n="Basic">Configurações</div>
                 </a>
             </li>
             @endif

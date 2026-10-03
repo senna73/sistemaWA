@@ -36,13 +36,15 @@
                 <p class="icon-name text-capitalize text-truncate mb-0">{{ auth()->user()->isSuperAdmin() ? 'Cadastro do colaborador' : 'Meu cadastro' }}</p>
               </a>
             </div>
-            @if (auth()->user()?->seesPortalEarningsAndDailyRates())
+            @if (auth()->user()?->seesPortalEarnings())
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
               <a class="card-body" href="{{ route('portal.earnings') }}">
                 <i class="bx bx-wallet mb-2"></i>
                 <p class="icon-name text-capitalize text-truncate mb-0">{{ auth()->user()->isSuperAdmin() ? 'Saldo do colaborador' : 'Meu saldo' }}</p>
               </a>
             </div>
+            @endif
+            @if (auth()->user()?->seesPortalDailyRates())
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
               <a class="card-body" href="{{ route('portal.daily-rates') }}">
                 <i class="bx bx-calendar mb-2"></i>
@@ -86,6 +88,12 @@
                 <p class="icon-name text-capitalize text-truncate mb-0">Usuários</p>
               </a>
             </div>
+            <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
+              <a class="card-body" href="{{ route('users.deleted') }}">
+                <i class="bx bx-collection mb-2"></i>
+                <p class="icon-name text-capitalize text-truncate mb-0">Usuários apagados</p>
+              </a>
+            </div>
             @endcan
             @can('Lista de estabelecimentos')
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
@@ -102,6 +110,12 @@
                 <p class="icon-name text-capitalize text-truncate mb-0">Colaboradores</p>
               </a>
             </div>
+            <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
+              <a class="card-body" href="{{ route('collaborators.deleted') }}">
+                <i class="bx bx-collection mb-2"></i>
+                <p class="icon-name text-capitalize text-truncate mb-0">Colaboradores apagados</p>
+              </a>
+            </div>
             @endcan
             @can('Lista de diárias')
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
@@ -111,6 +125,14 @@
               </a>
             </div>
             @endcan
+            @if (auth()->user()?->isSuperAdmin())
+            <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
+              <a class="card-body" href="{{ route('settings.index') }}">
+                <i class="bx bx-cog mb-2"></i>
+                <p class="icon-name text-capitalize text-truncate mb-0">Configurações</p>
+              </a>
+            </div>
+            @endif
         </div>
     </div>
 </x-app-layout>

@@ -76,6 +76,60 @@ class UsersController extends Controller
             ->make(true);
     }
 
+    public function deleted()
+    {
+        return view('app.users.deleted', [
+            'roles' => AccessControl::assignableRoles(),
+        ]);
+    }
+
+    public function deletedTable(Request $request)
+    {
+        $users = User::query()
+            ->where('active', '=', false)
+            ->when($request->filled('role'), function ($query) use ($request) {
+                $query->where('role', $request->string('role')->toString());
+            })
+            ->orderBy('name');
+
+        return DataTables::of($users)
+            ->addColumn('name', fn ($user) => $user->name)
+            ->addColumn('email', fn ($user) => $user->email)
+            ->addColumn('role', fn ($user) => e($user->roleLabel()))
+            ->addColumn('updated_at', fn ($user) => optional($user->updated_at)->format('d/m/Y H:i'))
+            ->addColumn('actions', function ($user) {
+                $name = e($user->name);
+                $reportUrl = route('users.report', ['id' => $user->id, 'type' => '__TYPE__']);
+
+                return '<div class="demo-inline-spacing">
+                    <button type="button" class="btn btn-icon btn-info" title="Relatórios"
+                        onclick="openDeletedReports('.$user->id.', \''.addslashes($name).'\', \''.$reportUrl.'\')">
+                        <span class="tf-icons bx bx-file"></span>
+                    </button>
+                </div>';
+            })
+            ->rawColumns(['actions'])
+            ->make(true);
+    }
+
+    public function report(Request $request, string $id, string $type)
+    {
+        User::findOrFail($id);
+
+        $request->merge([
+            'user_id' => [$id],
+            'collaborator_id' => null,
+        ]);
+
+        $reports = app(ReportsController::class);
+
+        return match ($type) {
+            'registers' => $reports->registers($request),
+            'daily-rates' => $reports->dailyRates($request),
+            default => abort(404),
+        };
+    }
+
     public function create()
     {
         return view('app.users.edit', $this->formPayload());

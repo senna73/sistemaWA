@@ -303,10 +303,18 @@
             },
             error: function(response) {
                 response = JSON.parse(response.responseText);
+                const releaseUrl = response?.release_url;
                 Swal.fire({
                     title: response?.title ?? 'Oops!',
                     html: response?.message?.replace(/\n/, '<br>') ?? 'Erro na ação!',
-                    icon: response?.type ?? 'error'
+                    icon: response?.type ?? 'error',
+                    showCancelButton: !!releaseUrl,
+                    confirmButtonText: releaseUrl ? 'Solicitar liberação' : 'OK',
+                    cancelButtonText: 'Fechar'
+                }).then((result) => {
+                    if (releaseUrl && result.isConfirmed) {
+                        window.location.href = releaseUrl;
+                    }
                 });
             }
         });
@@ -333,10 +341,18 @@
             },
             error: function(response) {
                 response = JSON.parse(response.responseText);
+                const releaseUrl = response?.release_url;
                 Swal.fire({
                     title: response?.title ?? 'Oops!',
                     html: response?.message?.replace(/\n/g, '<br>') ?? 'Erro na ação!',
-                    icon: response?.type ?? 'error'
+                    icon: response?.type ?? 'error',
+                    showCancelButton: !!releaseUrl,
+                    confirmButtonText: releaseUrl ? 'Solicitar liberação' : 'OK',
+                    cancelButtonText: 'Fechar'
+                }).then((result) => {
+                    if (releaseUrl && result.isConfirmed) {
+                        window.location.href = releaseUrl;
+                    }
                 });
             }
         });

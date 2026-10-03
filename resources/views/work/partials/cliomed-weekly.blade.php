@@ -173,7 +173,7 @@
                                                 <input type="hidden" name="key" value="{{ $item['_key'] }}">
                                                 <input type="hidden" name="bucket" value="" class="js-cliomed-bucket">
                                                 <input type="hidden" name="q" value="" class="js-cliomed-q">
-                                                <button class="btn btn-sm btn-outline-warning" type="submit">Resolvida</button>
+                                                <button class="btn btn-sm btn-outline-warning" type="submit">{{ in_array($group['bucket'], ['only_system', 'wrong_clinic'], true) ? 'Aplicar regra' : 'Resolvida' }}</button>
                                             </form>
                                         @endcan
                                     </td>

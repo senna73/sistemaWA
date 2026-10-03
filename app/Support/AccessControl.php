@@ -76,6 +76,11 @@ class AccessControl
             self::PERMISSION_DIRECTION,
             self::PERMISSION_RECRUITMENT,
             self::PERMISSION_ACCOUNTING,
+            PopCatalog::PERMISSION_ACCOUNTING_LIST,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
+            PopCatalog::PERMISSION_HANDLE_DEMAND,
+            PopCatalog::PERMISSION_REVIEW_DEMAND,
+            PopCatalog::PERMISSION_AGENDA,
             self::PERMISSION_SUPER_ADMIN,
             'Lista de usuários',
             'Lista de colaboradores',
@@ -96,14 +101,18 @@ class AccessControl
         self::role(self::ROLE_COLLABORATOR)->syncPermissions([
             self::PERMISSION_PORTAL,
             self::PERMISSION_REQUEST_OWN_DISMISSAL,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
         ]);
 
         self::role(self::ROLE_EMPLOYEE)->syncPermissions([
             self::PERMISSION_PORTAL,
             self::PERMISSION_REQUEST_OWN_DISMISSAL,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
         ]);
 
-        self::role(self::ROLE_LEADER)->syncPermissions([]);
+        self::role(self::ROLE_LEADER)->syncPermissions([
+            PopCatalog::PERMISSION_OPEN_DEMAND,
+        ]);
 
         self::role(self::ROLE_SUPER_ADMIN)->syncPermissions([
             self::PERMISSION_SUPER_ADMIN,
@@ -113,11 +122,18 @@ class AccessControl
             self::PERMISSION_MANAGE_OFFBOARDING,
             self::PERMISSION_REQUEST_OFFBOARDING,
             self::PERMISSION_RECRUITMENT,
+            PopCatalog::PERMISSION_ACCOUNTING_LIST,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
+            PopCatalog::PERMISSION_HANDLE_DEMAND,
+            PopCatalog::PERMISSION_REVIEW_DEMAND,
+            PopCatalog::PERMISSION_AGENDA,
         ]);
 
         self::role(self::ROLE_COORDINATOR)->syncPermissions([
             self::PERMISSION_REQUEST_OFFBOARDING,
             self::PERMISSION_WORK,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
+            PopCatalog::PERMISSION_AGENDA,
         ]);
 
         self::role(self::ROLE_RH)->syncPermissions([
@@ -127,11 +143,17 @@ class AccessControl
             self::PERMISSION_WORK,
             self::PERMISSION_RECRUITMENT,
             'Lista de colaboradores',
+            PopCatalog::PERMISSION_ACCOUNTING_LIST,
+            PopCatalog::PERMISSION_OPEN_DEMAND,
+            PopCatalog::PERMISSION_HANDLE_DEMAND,
+            PopCatalog::PERMISSION_REVIEW_DEMAND,
+            PopCatalog::PERMISSION_AGENDA,
         ]);
 
         self::role(self::ROLE_ACCOUNTING)->syncPermissions([
             self::PERMISSION_WORK,
             self::PERMISSION_ACCOUNTING,
+            PopCatalog::PERMISSION_ACCOUNTING_LIST,
         ]);
 
         self::ensureBootstrapSuperAdmin();

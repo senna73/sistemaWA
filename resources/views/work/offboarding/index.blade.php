@@ -12,9 +12,9 @@
 
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                <h5 class="mb-0">Gestão RH Demissional</h5>
+                <h5 class="mb-0">{{ ! empty($coordinatorOnly) ? 'Inatividade da equipe' : 'Gestão RH Demissional' }}</h5>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">RH Controle</a>
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">{{ ! empty($coordinatorOnly) ? 'Coordenação' : 'RH Controle' }}</a>
                     @can('Gerir desligamentos')
                         <form method="POST" action="{{ route('work.inactivity.review') }}">
                             @csrf
@@ -24,12 +24,15 @@
                     @can('Solicitar desligamento')
                         <a class="btn btn-sm btn-primary" href="{{ route('work.request') }}">Nova solicitação</a>
                     @endcan
+                    <a class="btn btn-sm btn-outline-primary" href="{{ ! empty($coordinatorOnly) ? route('work.releases.create') : route('work.releases.index') }}">Liberações de diária</a>
                 </div>
             </div>
+            @if (empty($coordinatorOnly))
             <div class="card-body">
                 <div class="row g-3">
                     @php
                         $stageCards = [
+                            ['offboarding', 'inactivity', $summary['stages']['inactivity'] ?? 0, '18 / 25 dias sem diária', 'rh'],
                             ['offboarding', 'atendimento_rh', $summary['stages']['atendimento_rh'] ?? 0, 'Aguardando atendimento do RH', 'rh'],
                             ['offboarding', 'analise_direcao', $summary['stages']['analise_direcao'] ?? 0, 'Minhas Análises', 'gestor'],
                             ['offboarding', 'marcacao_exame', $summary['stages']['marcacao_exame'] ?? 0, 'Marcação de exame', 'rh'],
@@ -51,13 +54,16 @@
                     @endforeach
                 </div>
             </div>
+            @endif
         </div>
 
         @include('work.partials.stage-board', [
             'board' => $board,
-            'boardTitle' => 'Desligamentos por etapa',
-            'boardHint' => 'Amarelo é fila do RH. Vermelho só anda com a aprovação do Super admin. Cada card de demissão fica ligado a um colaborador.',
-            'showDutyLegend' => true,
+            'boardTitle' => ! empty($coordinatorOnly) ? 'Inatividade por etapa' : 'Desligamentos por etapa',
+            'boardHint' => ! empty($coordinatorOnly)
+                ? 'Justifique a ausência ou peça a liberação de diária. A fila de demissão fica com o RH.'
+                : 'Amarelo é fila do RH. Vermelho só anda com a aprovação do Super admin. Cada card de demissão fica ligado a um colaborador.',
+            'showDutyLegend' => empty($coordinatorOnly),
         ])
     </div>
     @include('work.partials.stage-board-scripts')

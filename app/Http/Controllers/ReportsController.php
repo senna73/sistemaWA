@@ -33,6 +33,10 @@ class ReportsController extends Controller
             $dailyRateQuery->whereIn('daily_rate.collaborator_id', (array) $request->collaborator_id);
         }
 
+        if ($request->filled('user_id')) {
+            $dailyRateQuery->whereIn('daily_rate.user_id', (array) $request->user_id);
+        }
+
         if ($request->filled('company_id')) {
             $dailyRateQuery->whereIn('daily_rate.company_id', (array) $request->company_id);
         }
@@ -322,6 +326,10 @@ class ReportsController extends Controller
     
         if ($request->collaborator_id) {
             $dailyRate->whereIn('daily_rate.collaborator_id', $request->collaborator_id);
+        }
+
+        if ($request->user_id) {
+            $dailyRate->whereIn('daily_rate.user_id', $request->user_id);
         }
     
         if ($request->company_id) {

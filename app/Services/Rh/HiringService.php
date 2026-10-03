@@ -62,6 +62,10 @@ class HiringService
         $candidate->update(['status' => $next]);
         $candidate = $candidate->fresh(['attachments', 'company']);
 
+        if ($previous === Candidate::STATUS_DOCS && $candidate->status === Candidate::STATUS_EXAM) {
+            $this->spawnHiringActivity($candidate, $actor, 'hiring_exam', 'Agendar exame admissional de '.$candidate->name);
+        }
+
         if ($previous !== Candidate::STATUS_ACCOUNTING && $candidate->status === Candidate::STATUS_ACCOUNTING) {
             $this->handToAccounting($candidate);
         }
@@ -84,8 +88,37 @@ class HiringService
             'inss_verified_at' => now(),
             'status' => Candidate::STATUS_STORE,
         ]);
+        $candidate = $candidate->fresh(['attachments', 'company']);
+        $this->spawnHiringActivity($candidate, $actor, 'hiring_store', 'Cadastro na loja / primeira escala de '.$candidate->name);
 
-        return $candidate->fresh(['attachments', 'company']);
+        return $candidate;
+    }
+
+    private function spawnHiringActivity(Candidate $candidate, User $actor, string $type, string $title): void
+    {
+        $agenda = app(AgendaService::class);
+        $assignee = $agenda->defaultAssignee($actor);
+        if (! $assignee) {
+            return;
+        }
+
+        $exists = \App\Models\AgendaItem::query()
+            ->where('candidate_id', $candidate->id)
+            ->where('type', $type)
+            ->whereNotIn('status', [\App\Models\AgendaItem::STATUS_DONE, \App\Models\AgendaItem::STATUS_CANCELLED])
+            ->exists();
+        if ($exists) {
+            return;
+        }
+
+        $agenda->create($actor, [
+            'title' => $title,
+            'assignee_id' => $assignee->id,
+            'type' => $type,
+            'due_at' => now()->addDay(),
+            'candidate_id' => $candidate->id,
+            'company_id' => $candidate->company_id,
+        ]);
     }
 
     private function handToAccounting(Candidate $candidate): void

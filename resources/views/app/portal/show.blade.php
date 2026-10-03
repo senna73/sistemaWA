@@ -10,8 +10,37 @@
         @include('work.partials.notifications')
         @include('app.portal.partials.lookup')
 
+        @if (($inactivityAudit ?? null) && in_array($inactivityAudit->status, ['open_18', 'watching'], true))
+        <div class="card mb-4 border-warning">
+            <div class="card-header"><h5 class="mb-0">Acompanhamento: {{ $inactivityAudit->days_without_daily }} dias sem diária</h5></div>
+            <div class="card-body">
+                <p>Informe uma justificativa para o RH analisar ou continue o processo até 25 dias.</p>
+                @if ($canEditPix ?? false)
+                <div class="d-flex flex-wrap gap-2">
+                    <form method="POST" action="{{ route('portal.inactivity.response', $inactivityAudit) }}" class="d-flex gap-2 flex-wrap">
+                        @csrf
+                        <input type="hidden" name="coordinator_response" value="justificativa">
+                        <select name="justification" class="form-select" required>
+                            <option value="">Justificativa</option>
+                            @foreach ($justifications as $key => $label)
+                                <option value="{{ $key }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                        <button class="btn btn-warning" type="submit">Informar justificativa</button>
+                    </form>
+                    <form method="POST" action="{{ route('portal.inactivity.response', $inactivityAudit) }}">
+                        @csrf
+                        <input type="hidden" name="coordinator_response" value="continuar">
+                        <button class="btn btn-outline-secondary" type="submit">Continuar processo</button>
+                    </form>
+                </div>
+                @endif
+            </div>
+        </div>
+        @endif
+
         @if ($collaborator)
-        @if (auth()->user()?->seesPortalEarningsAndDailyRates())
+        @if (auth()->user()?->seesPortalEarnings())
         <div class="card mb-4">
             <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
@@ -34,7 +63,15 @@
                     <dt class="col-sm-3">Celular / WhatsApp</dt>
                     <dd class="col-sm-9">{{ $collaborator->mobile ?: '—' }}</dd>
                     <dt class="col-sm-3">Chave PIX</dt>
-                    <dd class="col-sm-9">{{ $collaborator->pix_key ?: '—' }}</dd>
+                    <dd class="col-sm-9">
+                        {{ $collaborator->pix_key ?: '—' }}
+                        @if ($canEditPix ?? false)
+                            <div class="small mt-1">
+                                <a href="{{ route('portal.requests') }}">Solicitar troca de Pix</a>
+                                — o RH vincula a atividade ao seu cadastro e só aplica depois da conferência.
+                            </div>
+                        @endif
+                    </dd>
                     <dt class="col-sm-3">Cidade</dt>
                     <dd class="col-sm-9">{{ $collaborator->city ?: '—' }}</dd>
                     <dt class="col-sm-3">Tamanho do uniforme</dt>

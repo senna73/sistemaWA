@@ -10,7 +10,11 @@
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Solicitar desligamento (coordenador)</h5>
-                <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.project', 'offboarding') }}">Quadro de demissões</a>
+                @can('Gerir desligamentos')
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.project', 'offboarding') }}">Quadro de demissões</a>
+                @else
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">Voltar</a>
+                @endcan
             </div>
             <div class="card-body">
                 <p class="text-muted">Tela do coordenador: pesquise o colaborador e envie demissão ou transferência. O RH recebe o card na fila de atendimento.</p>
@@ -42,7 +46,7 @@
                 <div class="card-body">
                     <p class="text-muted">
                         Tel: {{ $collaborator->mobile }} · Função: {{ $collaborator->job_title ?: '—' }}<br>
-                        Loja/grupo: {{ $collaborator->group ?: '—' }} · Admissão: {{ $collaborator->hiredAt()->format('d/m/Y') }}<br>
+                        Loja/grupo: {{ $collaborator->group ?: '—' }} · Admissão: {{ $collaborator->hiredAt()?->format('d/m/Y') ?? 'sem admissão conferida' }}<br>
                         Tempo: {{ $collaborator->tenureDays() }} dias · Diárias WA: {{ $collaborator->waDailyCount() }}<br>
                         Último dia trabalhado: {{ $collaborator->lastDailyAt()?->format('d/m/Y') ?? 'Sem diária lançada' }}
                     </p>

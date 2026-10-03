@@ -16,6 +16,9 @@
                     
                     <!-- Botões Export pdf -->
                     <div class="col-md-6 d-flex gap-2 justify-content-end">
+                        <a href="{{ route('collaborators.deleted') }}" class="btn btn-outline-warning w-100 w-md-auto">
+                            <i class="bx bx-user-x me-1"></i> Apagados
+                        </a>
                         <button type="button" id="btn-export" class="btn btn-outline-secondary w-100 w-md-auto">
                             <i class="bx bx-export me-1"></i> Exportar
                         </button>

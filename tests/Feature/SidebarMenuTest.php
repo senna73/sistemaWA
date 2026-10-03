@@ -38,6 +38,7 @@ it('shows only portal links for a collaborator', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('Meu cadastro')
+        ->assertSee('Solicitações')
         ->assertDontSee('Meu saldo')
         ->assertDontSee('Diárias')
         ->assertDontSee('RH Controle')
@@ -66,5 +67,6 @@ it('shows the RH inbox to the general manager', function () {
         ->assertSee('Acompanhamento RH')
         ->assertSee('RH Controle')
         ->assertSee('Cadastro do colaborador')
+        ->assertSee('Configurações')
         ->assertDontSee('Usuários');
 });
