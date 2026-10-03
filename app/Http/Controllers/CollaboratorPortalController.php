@@ -29,8 +29,12 @@ class CollaboratorPortalController extends Controller
         ]));
     }
 
-    public function earnings(Request $request): View
+    public function earnings(Request $request): View|RedirectResponse
     {
+        if ($redirect = $this->blockCollaboratorEarningsIfLocked($request)) {
+            return $redirect;
+        }
+
         $context = $this->portalContext($request);
         $collaborator = $context['collaborator'];
         $wallet = $collaborator ? $this->walletFor($collaborator) : null;
@@ -49,8 +53,12 @@ class CollaboratorPortalController extends Controller
         ]));
     }
 
-    public function dailyRates(Request $request): View
+    public function dailyRates(Request $request): View|RedirectResponse
     {
+        if ($redirect = $this->blockCollaboratorEarningsIfLocked($request)) {
+            return $redirect;
+        }
+
         $context = $this->portalContext($request);
         $collaborator = $context['collaborator'];
 
@@ -119,6 +127,19 @@ class CollaboratorPortalController extends Controller
             'searchResults' => $results,
             'q' => $request->string('q')->toString(),
         ];
+    }
+
+    private function blockCollaboratorEarningsIfLocked(Request $request): ?RedirectResponse
+    {
+        $user = $request->user();
+
+        if (! $user || $user->seesPortalEarningsAndDailyRates()) {
+            return null;
+        }
+
+        return redirect()
+            ->route('portal.show')
+            ->with('status', 'Saldo e diárias serão liberados após a atualização cadastral. Por enquanto use Meu cadastro.');
     }
 
     private function assertPortalOrSuperAdmin(Request $request): void

@@ -11,6 +11,7 @@
         @include('app.portal.partials.lookup')
 
         @if ($collaborator)
+        @if (auth()->user()?->seesPortalEarningsAndDailyRates())
         <div class="card mb-4">
             <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
@@ -20,6 +21,7 @@
                 <a class="btn btn-outline-primary" href="{{ route('portal.earnings', $canSearch ? ['collaborator_id' => $collaborator->id] : []) }}">Ver saldo</a>
             </div>
         </div>
+        @endif
 
         <div class="card mb-4">
             <div class="card-header">

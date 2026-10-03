@@ -38,7 +38,8 @@ it('shows only portal links for a collaborator', function () {
         ->get(route('dashboard'))
         ->assertOk()
         ->assertSee('Meu cadastro')
-        ->assertSee('Meu saldo')
+        ->assertDontSee('Meu saldo')
+        ->assertDontSee('Diárias')
         ->assertDontSee('RH Controle')
         ->assertDontSee('Usuários')
         ->assertDontSee('Administração');

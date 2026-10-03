@@ -144,6 +144,19 @@ class User extends Authenticatable
         return $this->can(AccessControl::PERMISSION_PORTAL) && (bool) $this->collaborator_id;
     }
 
+    public function seesPortalEarningsAndDailyRates(): bool
+    {
+        if (! $this->seesCollaboratorPortal()) {
+            return false;
+        }
+
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return (bool) config('portal.collaborator_earnings_enabled', false);
+    }
+
     public function roleLabel(): string
     {
         $normalized = $this->role;

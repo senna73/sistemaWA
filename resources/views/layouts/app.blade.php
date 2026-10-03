@@ -108,6 +108,7 @@
                   <div>{{ auth()->user()->isSuperAdmin() ? 'Cadastro do colaborador' : 'Meu cadastro' }}</div>
                 </a>
             </li>
+            @if (auth()->user()?->seesPortalEarningsAndDailyRates())
             <li class="menu-item {{ request()->routeIs('portal.earnings') ? 'active' : '' }}">
                 <a href="{{ route('portal.earnings') }}" class="menu-link">
                   <i class="menu-icon tf-icons bx bx-wallet"></i>
@@ -120,6 +121,7 @@
                   <div>{{ auth()->user()->isSuperAdmin() ? 'Diárias do colaborador' : 'Diárias' }}</div>
                 </a>
             </li>
+            @endif
             @endif
 
             @can('Acesso Work')

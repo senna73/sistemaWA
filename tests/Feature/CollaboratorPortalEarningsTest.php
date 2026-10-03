@@ -28,7 +28,7 @@ function portalSuperAdmin(): User
     return $user->fresh();
 }
 
-it('lets a collaborator see their own wallet balance', function () {
+it('keeps collaborator wallet and daily rates locked until cadastral release', function () {
     $user = portalCollaboratorUser();
     CollaboratorWallet::query()->create([
         'collaborator_id' => $user->collaborator_id,
@@ -39,16 +39,13 @@ it('lets a collaborator see their own wallet balance', function () {
 
     $this->actingAs($user)
         ->get(route('portal.earnings'))
-        ->assertOk()
-        ->assertSee('150,75')
-        ->assertSee('Quanto você vai receber')
-        ->assertDontSee('Buscar colaborador');
+        ->assertRedirect(route('portal.show'));
 
     $this->actingAs($user)
         ->get(route('portal.show'))
         ->assertOk()
-        ->assertSee('150,75')
         ->assertSee('Meu cadastro')
+        ->assertDontSee('150,75')
         ->assertDontSee('Salvar');
 });
 
@@ -64,10 +61,7 @@ it('blocks a collaborator from looking up another wallet', function () {
 
     $this->actingAs($user)
         ->get(route('portal.earnings', ['collaborator_id' => $other->id, 'q' => $other->name]))
-        ->assertOk()
-        ->assertDontSee('Buscar colaborador')
-        ->assertDontSee('999,11')
-        ->assertDontSee('Outro Colaborador Saldo');
+        ->assertRedirect(route('portal.show'));
 
     $this->actingAs($user)
         ->get(route('admin.collaborator.earnings'))
@@ -175,7 +169,7 @@ it('shows the collaborator cadastro as read only', function () {
     expect($user->collaborator->fresh()->name)->not->toBe('Nome Alterado');
 });
 
-it('lists the collaborator daily rates as view only', function () {
+it('redirects collaborator daily rates until cadastral release', function () {
     $user = portalCollaboratorUser();
     $section = Section::query()->create(['name' => 'Caixa']);
     DailyRate::forceCreate([
@@ -199,11 +193,29 @@ it('lists the collaborator daily rates as view only', function () {
 
     $this->actingAs($user)
         ->get(route('portal.daily-rates'))
+        ->assertRedirect(route('portal.show'));
+});
+
+it('lets a collaborator see wallet and daily rates when the cadastral lock is released', function () {
+    config(['portal.collaborator_earnings_enabled' => true]);
+
+    $user = portalCollaboratorUser();
+    CollaboratorWallet::query()->create([
+        'collaborator_id' => $user->collaborator_id,
+        'balance' => 150.75,
+        'total_added' => 150.75,
+        'total_spent' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('A receber')
-        ->assertSee('Recebida')
-        ->assertSee('120,00')
-        ->assertSee('130,00')
-        ->assertDontSee('Salvar')
-        ->assertDontSee('Editar');
+        ->assertSee('Meu saldo')
+        ->assertSee('Diárias');
+
+    $this->actingAs($user)
+        ->get(route('portal.earnings'))
+        ->assertOk()
+        ->assertSee('150,75')
+        ->assertSee('Quanto você vai receber');
 });
