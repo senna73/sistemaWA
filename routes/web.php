@@ -216,7 +216,7 @@ Route::get('/dashboard', function () {
 
         Route::get('/{id}', [AcordoValorExtraController::class, 'item'])->name('acordo-valor-extra.data.show');
         Route::post('/create', [AcordoValorExtraController::class, 'create'])->name('acordo-valor-extra.data.create');
-        Route::delete('/delete/{id}', [AcordoValorExtraController::class, 'delete'])->name('acordo-valor-extra.data.create');
+        Route::delete('/delete/{id}', [AcordoValorExtraController::class, 'delete'])->name('acordo-valor-extra.data.delete');
     });
 
 
