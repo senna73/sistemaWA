@@ -11,6 +11,27 @@ test('login screen can be rendered', function () {
     $response->assertStatus(200);
 });
 
+test('users can switch identifier from password step', function () {
+    $user = User::factory()->create();
+
+    $this->post('/login/identify', [
+        'identifier' => $user->email,
+    ])->assertRedirect(route('login'));
+
+    $this->assertSame('password', session('login.step'));
+
+    $this->get(route('login', ['change' => 1]))
+        ->assertRedirect(route('login'));
+
+    $this->assertNull(session('login.step'));
+    $this->assertNull(session('login.identifier'));
+
+    $this->get('/login')
+        ->assertOk()
+        ->assertSee('CPF ou e-mail')
+        ->assertDontSee('Usar outro CPF ou e-mail');
+});
+
 test('users can authenticate using email after identify step', function () {
     $user = User::factory()->create();
 

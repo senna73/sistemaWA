@@ -20,8 +20,14 @@ class AuthenticatedSessionController extends Controller
 
     public function __construct(private CollaboratorAccessService $access) {}
 
-    public function create(): View
+    public function create(Request $request): View|RedirectResponse
     {
+        if ($request->boolean('change')) {
+            $request->session()->forget(['login.step', 'login.identifier', 'login.user_id', 'login.collaborator_id']);
+
+            return redirect()->route('login');
+        }
+
         return view('auth.login', [
             'step' => session('login.step', 'identifier'),
             'identifier' => session('login.identifier'),

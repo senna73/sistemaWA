@@ -73,8 +73,10 @@
                   <div class="mb-3">
                     <button class="btn btn-primary d-grid w-100" type="submit">Entrar</button>
                   </div>
-                  <a href="{{ route('login') }}" onclick="event.preventDefault(); this.closest('form') || (window.location='{{ route('login') }}');">Usar outro CPF ou e-mail</a>
                 </form>
+                <div class="text-center">
+                  <a href="{{ route('login', ['change' => 1]) }}">Usar outro CPF ou e-mail</a>
+                </div>
               @else
                 <form method="POST" action="{{ route('login.identify') }}">
                   @csrf

@@ -43,6 +43,9 @@
                 </div>
                 <button class="btn btn-primary d-grid w-100" type="submit">Criar acesso</button>
               </form>
+              <div class="text-center mt-3">
+                <a href="{{ route('login', ['change' => 1]) }}">Usar outro CPF ou e-mail</a>
+              </div>
             </div>
           </div>
         </div>
