@@ -97,15 +97,13 @@
                     <span class="badge bg-label-warning">Dados mock</span>
                 </div>
                 <div class="list-group list-group-flush">
-                    @if (config('rh.show_hiring'))
-                        <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ route('work.demo', 'contratacoes') }}">
-                            <div>
-                                <strong>Quadro de contratações</strong>
-                                <div class="text-muted small">Vagas livres da cota e pessoas em processo de entrada, por loja.</div>
-                            </div>
-                            <span class="badge bg-label-primary">Demo</span>
-                        </a>
-                    @endif
+                    <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ route('work.demo', 'contratacoes') }}">
+                        <div>
+                            <strong>Quadro de contratações</strong>
+                            <div class="text-muted small">Vagas livres da cota e pessoas em processo de entrada, por loja.</div>
+                        </div>
+                        <span class="badge bg-label-primary">Demo</span>
+                    </a>
                     <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="{{ route('work.demo', 'demissoes') }}">
                         <div>
                             <strong>Quadro de demissões</strong>

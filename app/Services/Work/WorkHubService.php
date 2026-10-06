@@ -143,11 +143,6 @@ class WorkHubService
         ];
     }
 
-    public function hiringIsVisible(): bool
-    {
-        return (bool) config('rh.show_hiring');
-    }
-
     public function projects(?User $user = null): array
     {
         $user ??= auth()->user();

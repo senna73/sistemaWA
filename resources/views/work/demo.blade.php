@@ -16,12 +16,10 @@
             <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">RH Controle</a>
         </div>
 
-        @if (config('rh.show_hiring'))
-            <div class="d-flex gap-2 mb-3 px-1">
-                <a class="btn btn-sm {{ $mode === 'contratacoes' ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('work.demo', 'contratacoes') }}">Contratações</a>
-                <a class="btn btn-sm {{ $mode === 'demissoes' ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('work.demo', 'demissoes') }}">Demissões</a>
-            </div>
-        @endif
+        <div class="d-flex gap-2 mb-3 px-1">
+            <a class="btn btn-sm {{ $mode === 'contratacoes' ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('work.demo', 'contratacoes') }}">Contratações</a>
+            <a class="btn btn-sm {{ $mode === 'demissoes' ? 'btn-primary' : 'btn-outline-primary' }}" href="{{ route('work.demo', 'demissoes') }}">Demissões</a>
+        </div>
 
         @include('work.partials.stage-board', [
             'board' => $board,

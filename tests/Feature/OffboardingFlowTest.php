@@ -382,28 +382,14 @@ it('opens the work hub for direction roles', function () {
         ->assertSee('Comparar com o sistema');
 });
 
-it('hides hiring entry points in production while keeping the flow reachable', function () {
+it('shows hiring entry points on the recruitment board', function () {
     $owner = makeRoleUser('super_admin');
-    config(['rh.show_hiring' => false]);
-
-    $this->actingAs($owner)
-        ->get(route('work.home'))
-        ->assertOk()
-        ->assertSee('Gestão RH Demissional')
-        ->assertDontSee('Contratações por etapa')
-        ->assertDontSee('Quadro de contratações')
-        ->assertDontSee('Nova solicitação');
-
-    $this->actingAs($owner)
-        ->get(route('work.project', 'offboarding'))
-        ->assertOk()
-        ->assertSee('Nova solicitação');
 
     $this->actingAs($owner)
         ->get(route('work.project', 'recruitment'))
         ->assertOk()
         ->assertSee('Contratações por etapa')
-        ->assertDontSee('Nova contratação');
+        ->assertSee('Nova contratação');
 });
 
 it('does not mix pending financial batches into the offboarding decisions', function () {

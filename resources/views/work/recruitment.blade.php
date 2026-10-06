@@ -18,17 +18,14 @@
             </div>
             <div class="d-flex gap-2">
                 <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">RH Controle</a>
-                @if (config('rh.show_hiring'))
-                    @can('Recrutamento')
-                        <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#quota-form">Definir cota</button>
-                        <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#hire-form">Nova contratação</button>
-                    @endcan
-                @endif
+                @can('Recrutamento')
+                    <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#quota-form">Definir cota</button>
+                    <button class="btn btn-sm btn-primary" type="button" data-bs-toggle="collapse" data-bs-target="#hire-form">Nova contratação</button>
+                @endcan
             </div>
         </div>
 
-        @if (config('rh.show_hiring'))
-            @can('Recrutamento')
+        @can('Recrutamento')
             <div class="collapse mb-3" id="hire-form">
                 <div class="card">
                     <div class="card-body">
@@ -92,8 +89,7 @@
                     </div>
                 </div>
             </div>
-            @endcan
-        @endif
+        @endcan
 
         @include('work.partials.stage-board', [
             'board' => $board,
