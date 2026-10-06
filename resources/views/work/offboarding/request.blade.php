@@ -46,7 +46,7 @@
                 <div class="card-body">
                     <p class="text-muted">
                         Tel: {{ $collaborator->mobile }} · Função: {{ $collaborator->job_title ?: '—' }}<br>
-                        Loja/grupo: {{ $collaborator->group ?: '—' }} · Admissão: {{ $collaborator->hiredAt()?->format('d/m/Y') ?? 'sem admissão conferida' }}<br>
+                        Estabelecimento: {{ $collaborator->homeCompany?->name ?: '—' }} · Grupo WhatsApp: {{ $collaborator->group ?: '—' }} · Admissão: {{ $collaborator->hiredAt()?->format('d/m/Y') ?? 'sem admissão conferida' }}<br>
                         Tempo: {{ $collaborator->tenureDays() }} dias · Diárias WA: {{ $collaborator->waDailyCount() }}<br>
                         Último dia trabalhado: {{ $collaborator->lastDailyAt()?->format('d/m/Y') ?? 'Sem diária lançada' }}
                     </p>

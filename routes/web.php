@@ -83,6 +83,7 @@ Route::get('/dashboard', function () {
         Route::post('/liberacoes/{release}', [DailyRateReleaseController::class, 'decide'])->name('work.releases.decide')->middleware('permission:Gerir desligamentos|Minhas Análises Direção|Super admin');
         Route::get('/solicitacao', [WorkHubController::class, 'requestForm'])->name('work.request')->middleware('permission:Solicitar desligamento');
         Route::post('/solicitacao', [WorkHubController::class, 'storeRequest'])->name('work.request.store')->middleware('permission:Solicitar desligamento');
+        Route::get('/demandas', [OperationalDemandController::class, 'workQueue'])->name('work.demands')->middleware('permission:Atender demanda|Super admin');
         Route::get('/{project}', [WorkHubController::class, 'project'])->name('work.project')->where('project', 'offboarding|recruitment|finance|uniforms');
         Route::get('/offboarding/processos/{process}', [WorkHubController::class, 'show'])->name('work.offboarding.show');
         Route::get('/offboarding/processos/{process}/colaborador', [WorkHubController::class, 'collaboratorData'])->name('work.offboarding.collaborator');
@@ -133,6 +134,7 @@ Route::get('/dashboard', function () {
         Route::post('/', [OperationalDemandController::class, 'store'])->name('demands.store')->middleware('permission:Abrir demanda|Super admin');
         Route::get('/{demand}', [OperationalDemandController::class, 'show'])->name('demands.show');
         Route::post('/{demand}/atender', [OperationalDemandController::class, 'start'])->name('demands.start')->middleware('permission:Atender demanda|Super admin');
+        Route::post('/{demand}/aplicar', [OperationalDemandController::class, 'apply'])->name('demands.apply')->middleware('permission:Atender demanda|Super admin');
         Route::post('/{demand}/nota', [OperationalDemandController::class, 'note'])->name('demands.note')->middleware('permission:Atender demanda|Conferir demanda|Super admin');
         Route::post('/{demand}/conferencia', [OperationalDemandController::class, 'review'])->name('demands.review')->middleware('permission:Atender demanda|Super admin');
         Route::post('/{demand}/voltar', [OperationalDemandController::class, 'returnToProgress'])->name('demands.return')->middleware('permission:Conferir demanda|Super admin');

@@ -17,6 +17,7 @@ class AgendaService
     {
         $assignee = User::query()->findOrFail($data['assignee_id']);
         $this->assertAssignee($assignee);
+        $this->assertDemandType($actor, $data);
         $links = $this->linksFrom($data);
 
         $item = AgendaItem::query()->create([
@@ -158,6 +159,43 @@ class AgendaService
         if (! in_array($assignee->role, PopCatalog::agendaAssigneeRoles(), true) && ! $assignee->isSuperAdmin()) {
             throw ValidationException::withMessages([
                 'assignee_id' => 'A atividade só pode ser atribuída para pessoa do RH ou coordenador.',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function assertDemandType(User $actor, array $data): void
+    {
+        $type = $data['type'] ?? '';
+        if (! in_array($type, ['operational_demand', 'collaborator_request'], true)) {
+            return;
+        }
+
+        if ($actor->isRh() && ! $actor->isSuperAdmin()) {
+            throw ValidationException::withMessages([
+                'type' => 'O RH não abre demanda. Use a fila para atender o que chegar.',
+            ]);
+        }
+
+        if ($type === 'collaborator_request' && ! $actor->isCollaboratorRole() && ! $actor->isSuperAdmin()) {
+            throw ValidationException::withMessages([
+                'type' => 'Solicitação do colaborador entra pelo portal.',
+            ]);
+        }
+
+        if (! PopCatalog::canOpenOperationalDemand($actor) && ! $actor->isCollaboratorRole()) {
+            throw ValidationException::withMessages([
+                'type' => 'Só coordenador ou superadmin abrem demanda operacional.',
+            ]);
+        }
+
+        $category = $data['category'] ?? 'solicitacao_loja';
+        $allowed = PopCatalog::demandCategoriesFor($actor);
+        if ($allowed !== [] && ! isset($allowed[$category])) {
+            throw ValidationException::withMessages([
+                'category' => 'Esta categoria não está disponível para o seu perfil.',
             ]);
         }
     }

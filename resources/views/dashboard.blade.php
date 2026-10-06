@@ -63,16 +63,20 @@
             @endcan
             @can('Acesso Work')
             @can('Solicitar desligamento')
+            @if (\App\Support\RhActivitySettings::visible(\App\Support\RhActivitySettings::OFFBOARDING_REQUEST, auth()->user()))
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
               <a class="card-body" href="{{ route('work.request') }}">
                 <i class="bx bx-user-minus mb-2"></i>
                 <p class="icon-name text-capitalize text-truncate mb-0">Solicitar desligamento</p>
               </a>
             </div>
+            @endif
             @endcan
             @endcan
             @can('Inbox RH')
-            @if (auth()->user() && app(\App\Services\Work\WorkHubService::class)->seesGestorDuty(auth()->user()))
+            @if (auth()->user()
+                && app(\App\Services\Work\WorkHubService::class)->seesGestorDuty(auth()->user())
+                && \App\Support\RhActivitySettings::visible(\App\Support\RhActivitySettings::INBOX, auth()->user()))
             <div class="card icon-card cursor-pointer text-center mb-4 mx-2">
               <a class="card-body" href="{{ route('rh.inbox') }}">
                 <i class="bx bx-task mb-2"></i>

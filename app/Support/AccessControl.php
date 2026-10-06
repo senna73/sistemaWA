@@ -101,18 +101,14 @@ class AccessControl
         self::role(self::ROLE_COLLABORATOR)->syncPermissions([
             self::PERMISSION_PORTAL,
             self::PERMISSION_REQUEST_OWN_DISMISSAL,
-            PopCatalog::PERMISSION_OPEN_DEMAND,
         ]);
 
         self::role(self::ROLE_EMPLOYEE)->syncPermissions([
             self::PERMISSION_PORTAL,
             self::PERMISSION_REQUEST_OWN_DISMISSAL,
-            PopCatalog::PERMISSION_OPEN_DEMAND,
         ]);
 
-        self::role(self::ROLE_LEADER)->syncPermissions([
-            PopCatalog::PERMISSION_OPEN_DEMAND,
-        ]);
+        self::role(self::ROLE_LEADER)->syncPermissions([]);
 
         self::role(self::ROLE_SUPER_ADMIN)->syncPermissions([
             self::PERMISSION_SUPER_ADMIN,
@@ -144,7 +140,6 @@ class AccessControl
             self::PERMISSION_RECRUITMENT,
             'Lista de colaboradores',
             PopCatalog::PERMISSION_ACCOUNTING_LIST,
-            PopCatalog::PERMISSION_OPEN_DEMAND,
             PopCatalog::PERMISSION_HANDLE_DEMAND,
             PopCatalog::PERMISSION_REVIEW_DEMAND,
             PopCatalog::PERMISSION_AGENDA,

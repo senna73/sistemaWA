@@ -6,7 +6,7 @@
                 <div class="row g-3 align-items-end">
                     <!-- Select2 para os Grupos -->
                     <div class="col-md-6">
-                        <label for="groups-select" class="form-label fw-bold">Filtrar por Grupos:</label>
+                        <label for="groups-select" class="form-label fw-bold">Filtrar por grupos WhatsApp:</label>
                         <select id="groups-select" name="groups[]" class="select2 form-select" multiple="multiple">
                             @foreach ($groups as $group)
                                 <option value="{{ $group }}">{{ $group }}</option>
@@ -52,7 +52,7 @@
 
     $(document).ready(function() {
         $('#groups-select').select2({
-            placeholder: "Selecione os grupos...",
+            placeholder: "Selecione os grupos WhatsApp...",
             allowClear: true,
             width: '100%'
         });

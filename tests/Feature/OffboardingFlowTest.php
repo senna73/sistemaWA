@@ -486,7 +486,7 @@ it('moves the card to conference after the handwritten letter is uploaded', func
 it('completes a transfer into a new store', function () {
     $rh = makeRoleUser('rh');
     $coordinator = makeRoleUser('coordinator');
-    $collaborator = Collaborator::factory()->create();
+    $collaborator = Collaborator::factory()->create(['group' => 'Célula Norte']);
     $company = Company::query()->create(['name' => 'Loja Nova', 'coordinator_value' => 0]);
     $service = app(OffboardingService::class);
     $process = $service->open($collaborator, $coordinator, OffboardingProcess::ORIGIN_COORDINATOR, OffboardingProcess::KIND_TRANSFER);
@@ -494,6 +494,7 @@ it('completes a transfer into a new store', function () {
     expect($done->status)->toBe(OffboardingProcess::STAGE_TRANSFERENCIA_CONCLUIDA);
     expect($collaborator->fresh()->home_company_id)->toBe($company->id);
     expect($collaborator->fresh()->active)->toBeTrue();
+    expect($collaborator->fresh()->group)->toBe('Célula Norte');
 });
 
 it('renders demo document images and pending placeholders', function () {

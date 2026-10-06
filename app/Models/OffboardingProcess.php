@@ -506,7 +506,8 @@ class OffboardingProcess extends Model
             'title' => $collaborator?->name ?? 'Colaborador',
             'name' => $collaborator?->name ?? 'Colaborador',
             'kind' => $this->kindLabel(),
-            'store' => $collaborator?->homeCompany?->name ?? ($collaborator?->group ?: '—'),
+            'store' => $collaborator?->homeCompany?->name ?: '—',
+            'whatsapp_group' => $collaborator?->group ?: '—',
             'role' => $collaborator?->job_title,
             'stage' => $this->awaitsRh() ? 'Aguardando atendimento do RH' : $this->label(),
             'body' => $tenure.' dias de empresa · '.$daysWithout.' dias sem diária · '

@@ -10,21 +10,116 @@ use App\Models\OperationalDemandEvent;
 use App\Models\User;
 use App\Support\PopCatalog;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class OperationalDemandService
 {
+    /**
+     * @return array<string, mixed>
+     */
+    public function typeBoard(User $actor, bool $queueOnly = true): array
+    {
+        $canHandle = $actor->can(PopCatalog::PERMISSION_HANDLE_DEMAND)
+            || $actor->can(PopCatalog::PERMISSION_REVIEW_DEMAND)
+            || $actor->isSuperAdmin();
+        $canOperate = $canHandle && $actor->isRh();
+
+        $query = OperationalDemand::query()
+            ->with(['opener', 'assignee', 'collaborator.homeCompany', 'attachments', 'events.user', 'agendaItem'])
+            ->latest('id');
+
+        if (! $canHandle) {
+            $query->where(function ($inner) use ($actor) {
+                $inner->where('opened_by', $actor->id)->orWhere('assigned_to', $actor->id);
+            });
+        }
+
+        if ($queueOnly) {
+            $query->where('status', '!=', OperationalDemand::STATUS_DONE);
+        }
+
+        $demands = $query->get();
+
+        return $this->boardFrom($demands, $canOperate);
+    }
+
+    /**
+     * @param  Collection<int, OperationalDemand>  $demands
+     * @return array<string, mixed>
+     */
+    public function boardFrom(Collection $demands, bool $canOperate = false): array
+    {
+        $columns = [];
+        foreach (PopCatalog::demandCategories() as $key => $name) {
+            $columns[$key] = [
+                'id' => $key,
+                'name' => $name,
+                'city' => null,
+                'cards' => [],
+            ];
+        }
+
+        foreach ($demands as $demand) {
+            $key = $demand->category;
+            if (! isset($columns[$key])) {
+                $columns[$key] = [
+                    'id' => $key,
+                    'name' => $demand->categoryLabel(),
+                    'city' => null,
+                    'cards' => [],
+                ];
+            }
+            $columns[$key]['cards'][] = $demand->boardCard($canOperate);
+        }
+
+        $columnList = collect(array_values($columns))
+            ->filter(fn (array $column) => $column['cards'] !== [])
+            ->values();
+        $cardCount = (int) $columnList->sum(fn (array $column) => count($column['cards']));
+
+        return [
+            'columns' => $columnList,
+            'store_count' => $columnList->count(),
+            'openings' => 0,
+            'opening_count' => $cardCount,
+            'excess_count' => 0,
+            'process_count' => $cardCount,
+            'summary' => [
+                'awaiting' => $demands->where('status', OperationalDemand::STATUS_AWAITING)->count(),
+                'in_progress' => $demands->where('status', OperationalDemand::STATUS_IN_PROGRESS)->count(),
+                'review' => $demands->where('status', OperationalDemand::STATUS_REVIEW)->count(),
+                'done' => $demands->where('status', OperationalDemand::STATUS_DONE)->count(),
+            ],
+        ];
+    }
+
     public function open(User $actor, array $data, array $files = [], ?Collaborator $collaborator = null): OperationalDemand
     {
         if (count($files) > 3) {
             throw ValidationException::withMessages(['attachments' => 'No máximo 3 anexos.']);
         }
 
+        if (! $actor->isCollaboratorRole() && ! PopCatalog::canOpenOperationalDemand($actor)) {
+            throw ValidationException::withMessages([
+                'category' => 'O RH não abre demanda. Coordenador e superadmin encaminham o pedido.',
+            ]);
+        }
+
+        $allowed = $actor->isCollaboratorRole()
+            ? PopCatalog::collaboratorRequestCategories()
+            : PopCatalog::demandCategoriesFor($actor);
+        if ($allowed !== [] && ! isset($allowed[$data['category']])) {
+            throw ValidationException::withMessages([
+                'category' => 'Esta categoria não está disponível para o seu perfil.',
+            ]);
+        }
+
         return DB::transaction(function () use ($actor, $data, $files, $collaborator) {
             $collaborator = $collaborator
                 ?? (isset($data['collaborator_id']) ? Collaborator::query()->find($data['collaborator_id']) : null)
-                ?? $actor->collaborator;
+                ?? ($actor->isCollaboratorRole() ? $actor->collaborator : null);
             $required = PopCatalog::demandRecordLinks()[$data['category']] ?? [];
             if (in_array('collaborator', $required, true) && ! $collaborator) {
                 throw ValidationException::withMessages([
@@ -33,7 +128,7 @@ class OperationalDemandService
             }
 
             $assignee = app(AgendaService::class)->defaultAssignee($actor);
-            $payload = $data['payload'] ?? null;
+            $payload = $data['payload'] ?? PopCatalog::payloadFromInput($data['category'], $data);
             $title = PopCatalog::demandCategories()[$data['category']].($collaborator ? ' — '.$collaborator->name : '');
 
             $demand = OperationalDemand::query()->create([
@@ -102,6 +197,12 @@ class OperationalDemandService
 
     public function sendToReview(OperationalDemand $demand, User $actor): OperationalDemand
     {
+        if ($this->needsApply($demand) && ! $this->wasApplied($demand)) {
+            throw ValidationException::withMessages([
+                'status' => 'Confirme a alteração no cadastro neste card antes de enviar para conferência.',
+            ]);
+        }
+
         $demand->update(['status' => OperationalDemand::STATUS_REVIEW]);
         $this->event($demand, $actor, 'review');
 
@@ -130,7 +231,9 @@ class OperationalDemandService
             'status' => OperationalDemand::STATUS_DONE,
             'needs_review' => false,
         ]);
-        $this->applyOutcome($demand);
+        if (! $this->wasApplied($demand)) {
+            $this->applyOutcome($demand);
+        }
         $this->event($demand, $actor, 'done', $notes);
 
         $demand->load('agendaItem');
@@ -141,17 +244,118 @@ class OperationalDemandService
         return $demand->fresh();
     }
 
+    public function applyFromCard(OperationalDemand $demand, User $actor, array $input = []): OperationalDemand
+    {
+        if ($demand->status !== OperationalDemand::STATUS_IN_PROGRESS) {
+            throw ValidationException::withMessages([
+                'status' => 'Atenda a demanda antes de gravar o cadastro.',
+            ]);
+        }
+
+        if (! $this->needsApply($demand)) {
+            throw ValidationException::withMessages([
+                'category' => 'Este tipo de demanda não altera cadastro pelo card.',
+            ]);
+        }
+
+        $collaborator = $demand->collaborator;
+        if (! $collaborator) {
+            throw ValidationException::withMessages([
+                'collaborator_id' => 'Esta demanda precisa de um colaborador vinculado.',
+            ]);
+        }
+
+        $incoming = PopCatalog::payloadFromInput($demand->category, $input) ?? [];
+        $payload = array_merge($demand->payload ?? [], $incoming);
+        $this->assertPixUnlocked($demand, $collaborator, $payload);
+        $this->writeCollaboratorFromPayload($collaborator, $demand->category, $payload);
+
+        $payload['applied'] = true;
+        $payload['applied_at'] = now()->toIso8601String();
+        $demand->update(['payload' => $payload]);
+        $this->event($demand, $actor, 'applied', $this->appliedNote($demand->category, $payload));
+
+        return $demand->fresh(['collaborator', 'events.user', 'attachments', 'agendaItem']);
+    }
+
     private function applyOutcome(OperationalDemand $demand): void
     {
         $collaborator = $demand->collaborator;
-        if (! $collaborator) {
+        if (! $collaborator || ! $this->needsApply($demand)) {
             return;
         }
 
         $payload = $demand->payload ?? [];
-        if ($demand->category === 'troca_pix' && filled($payload['pix_key'] ?? null)) {
-            $collaborator->update(['pix_key' => $payload['pix_key']]);
+        $this->assertPixUnlocked($demand, $collaborator, $payload);
+        $this->writeCollaboratorFromPayload($collaborator, $demand->category, $payload);
+        $payload['applied'] = true;
+        $payload['applied_at'] = now()->toIso8601String();
+        $demand->update(['payload' => $payload]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function writeCollaboratorFromPayload(Collaborator $collaborator, string $category, array $payload): void
+    {
+        $fields = PopCatalog::demandApplyFields()[$category] ?? [];
+        $updates = [];
+        foreach ($fields as $field) {
+            if (filled($payload[$field] ?? null)) {
+                $updates[$field] = $payload[$field];
+            }
         }
+
+        if ($updates === []) {
+            throw ValidationException::withMessages([
+                'payload' => 'Informe o valor que deve ir para o cadastro.',
+            ]);
+        }
+
+        $collaborator->update($updates);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function assertPixUnlocked(OperationalDemand $demand, Collaborator $collaborator, array $payload): void
+    {
+        if ($demand->category !== 'troca_pix' || blank($payload['pix_key'] ?? null)) {
+            return;
+        }
+
+        $releases = app(DailyRateReleaseService::class);
+        if ($releases->paymentInProgress($collaborator)) {
+            throw ValidationException::withMessages([
+                'pix_key' => 'Pagamento em andamento: não aplique a chave até o lote fechar.',
+            ]);
+        }
+    }
+
+    private function needsApply(OperationalDemand $demand): bool
+    {
+        return isset(PopCatalog::demandApplyFields()[$demand->category]);
+    }
+
+    private function wasApplied(OperationalDemand $demand): bool
+    {
+        return (bool) (($demand->payload ?? [])['applied'] ?? false);
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    private function appliedNote(string $category, array $payload): string
+    {
+        $fields = PopCatalog::demandApplyFields()[$category] ?? [];
+        $parts = [];
+        foreach ($fields as $field) {
+            if (filled($payload[$field] ?? null)) {
+                $parts[] = $field.'='.$payload[$field];
+            }
+        }
+
+        return $parts === [] ? 'Cadastro atualizado pelo card.' : implode('; ', $parts);
     }
 
     public function attach(OperationalDemand $demand, User $actor, UploadedFile $file): OperationalDemandAttachment

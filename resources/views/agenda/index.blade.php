@@ -35,7 +35,7 @@
         <div class="card mb-4">
             <div class="card-header"><h5 class="mb-0">Nova atividade</h5></div>
             <div class="card-body">
-                <p class="small text-muted mb-3">Rotina, demanda, solicitação do colaborador, desligamento (retirar de grupos) e contratação (exame/loja) usam a mesma agenda. O tipo define o vínculo: Pix e cadastro no colaborador; grupos no processo de desligamento; exame no candidato.</p>
+                <p class="small text-muted mb-3">Rotina, demanda operacional, desligamento (retirar de grupos WhatsApp) e contratação usam a mesma agenda. Estabelecimento é a loja atendida. Grupo WhatsApp é outro dado, no cadastro do colaborador.</p>
                 <form method="POST" action="{{ route('agenda.store') }}" class="row g-2">
                     @csrf
                     <div class="col-md-4"><input name="title" class="form-control" placeholder="Título" required></div>
@@ -73,12 +73,22 @@
                     </div>
                     <div class="col-md-3">
                         <select name="company_id" class="form-select">
-                            <option value="">Loja/grupo</option>
+                            <option value="">Estabelecimento</option>
                             @foreach ($companies as $company)
                                 <option value="{{ $company->id }}">{{ $company->name }}</option>
                             @endforeach
                         </select>
                     </div>
+                    @if (! empty($demandCategories))
+                        <div class="col-md-3">
+                            <select name="category" class="form-select">
+                                <option value="">Categoria da demanda</option>
+                                @foreach ($demandCategories as $key => $label)
+                                    <option value="{{ $key }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    @endif
                     <div class="col-md-3"><input name="area" class="form-control" placeholder="Projeto/área"></div>
                     <div class="col-md-2"><input name="priority" class="form-control" value="normal" placeholder="Prioridade"></div>
                     <div class="col-md-2"><button class="btn btn-primary" type="submit">Criar</button></div>

@@ -68,6 +68,96 @@ class PopCatalog
     }
 
     /**
+     * Pedidos que o coordenador abre para o RH atender.
+     *
+     * @return array<string, string>
+     */
+    public static function coordinatorDemandCategories(): array
+    {
+        return array_intersect_key(self::demandCategories(), array_flip([
+            'transferencia_grupo',
+            'atualizacao_cadastro',
+            'troca_pix',
+            'problema_grupo',
+            'solicitacao_loja',
+        ]));
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function demandCategoriesFor(\App\Models\User $actor): array
+    {
+        if ($actor->isSuperAdmin()) {
+            return self::demandCategories();
+        }
+
+        if ($actor->isCoordinator()) {
+            return self::coordinatorDemandCategories();
+        }
+
+        return [];
+    }
+
+    public static function canOpenOperationalDemand(\App\Models\User $actor): bool
+    {
+        return $actor->isSuperAdmin() || $actor->isCoordinator();
+    }
+
+    /**
+     * Campos do cadastro que o card do RH pode gravar por categoria.
+     *
+     * @return array<string, list<string>>
+     */
+    public static function demandApplyFields(): array
+    {
+        return [
+            'troca_pix' => ['pix_key'],
+            'atualizacao_cadastro' => ['name', 'mobile', 'document'],
+            'transferencia_grupo' => ['group'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>|null
+     */
+    public static function payloadFromInput(string $category, array $input): ?array
+    {
+        $fields = self::demandApplyFields()[$category] ?? [];
+        if ($fields === []) {
+            return null;
+        }
+
+        $nested = is_array($input['payload'] ?? null) ? $input['payload'] : [];
+        $payload = [];
+        foreach ($fields as $field) {
+            $value = $nested[$field] ?? $input[$field] ?? null;
+            if (is_string($value) && trim($value) !== '') {
+                $payload[$field] = trim($value);
+            }
+        }
+
+        return $payload === [] ? null : $payload;
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function agendaTypesFor(\App\Models\User $actor): array
+    {
+        $types = self::agendaTypes();
+        if ($actor->isRh() && ! $actor->isSuperAdmin()) {
+            unset($types['operational_demand'], $types['collaborator_request']);
+        }
+        if ($actor->isCoordinator() && ! $actor->isSuperAdmin()) {
+            unset($types['collaborator_request']);
+        }
+
+        return $types;
+    }
+
+    /**
      * Registros obrigatórios de cada categoria de demanda (POP operacional).
      *
      * @return array<string, list<string>>
@@ -76,12 +166,12 @@ class PopCatalog
     {
         return [
             'declaracao' => ['collaborator'],
-            'transferencia_grupo' => ['collaborator', 'company'],
+            'transferencia_grupo' => ['collaborator'],
             'atualizacao_cadastro' => ['collaborator'],
             'troca_pix' => ['collaborator'],
             'duvida_diaria' => ['collaborator'],
             'desligamento' => ['collaborator', 'offboarding_process'],
-            'problema_grupo' => ['collaborator', 'company'],
+            'problema_grupo' => ['collaborator'],
             'solicitacao_loja' => ['company'],
             'outros' => [],
         ];

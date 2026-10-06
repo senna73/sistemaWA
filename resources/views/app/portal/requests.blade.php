@@ -29,6 +29,29 @@
                         <label class="form-label">Nova chave Pix</label>
                         <input name="pix_key" class="form-control" value="{{ old('pix_key', $collaborator->pix_key) }}">
                     </div>
+                    <div class="mb-3" id="group-field">
+                        <label class="form-label">Grupo WhatsApp de destino</label>
+                        <input name="payload[group]" class="form-control" list="portal-whatsapp-groups" value="{{ old('payload.group') }}">
+                        <datalist id="portal-whatsapp-groups">
+                            @foreach ($groups ?? [] as $group)
+                                <option value="{{ $group }}"></option>
+                            @endforeach
+                        </datalist>
+                    </div>
+                    <div id="cadastro-fields">
+                        <div class="mb-3">
+                            <label class="form-label">Nome</label>
+                            <input name="payload[name]" class="form-control" value="{{ old('payload.name', $collaborator->name) }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Celular</label>
+                            <input name="payload[mobile]" class="form-control" value="{{ old('payload.mobile', $collaborator->mobile) }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Documento</label>
+                            <input name="payload[document]" class="form-control" value="{{ old('payload.document', $collaborator->document) }}">
+                        </div>
+                    </div>
                     <div class="mb-3">
                         <label class="form-label">Detalhe</label>
                         <textarea name="request_text" class="form-control" required rows="3">{{ old('request_text') }}</textarea>
@@ -69,8 +92,12 @@
     <script>
         const category = document.getElementById('request-category');
         const pixField = document.getElementById('pix-field');
+        const groupField = document.getElementById('group-field');
+        const cadastroFields = document.getElementById('cadastro-fields');
         function togglePix() {
             pixField.style.display = category.value === 'troca_pix' ? '' : 'none';
+            groupField.style.display = category.value === 'transferencia_grupo' ? '' : 'none';
+            cadastroFields.style.display = category.value === 'atualizacao_cadastro' ? '' : 'none';
         }
         category.addEventListener('change', togglePix);
         togglePix();

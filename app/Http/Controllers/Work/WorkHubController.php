@@ -27,6 +27,7 @@ use App\Services\Rh\OffboardingService;
 use App\Services\Work\WorkHubDemo;
 use App\Services\Work\WorkHubService;
 use App\Support\AccessControl;
+use App\Support\RhActivitySettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -92,6 +93,7 @@ class WorkHubController extends Controller
     public function cliomed(Request $request, ClinicPanelService $clinics): View
     {
         abort_unless($request->user()?->managesRhWork(), 403);
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, $request->user());
         $weekly = $clinics->hydrateOkPeople($clinics->ensureWeeklyCheck());
 
         return view('work.cliomed', [
@@ -103,6 +105,7 @@ class WorkHubController extends Controller
 
     public function resolveCliomed(Request $request, ClinicPanelService $clinics): RedirectResponse
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, $request->user());
         $validated = $request->validate([
             'check_id' => ['required', 'exists:cliomed_weekly_checks,id'],
             'key' => ['required', 'string', 'max:255'],
@@ -175,6 +178,7 @@ class WorkHubController extends Controller
 
     public function cliomedChargePdf(ClinicPanelService $clinics)
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, request()->user());
         $weekly = $clinics->ensureWeeklyCheck();
         $names = $clinics->chargingNames($weekly);
         $html = view('work.cliomed-charge-pdf', ['names' => $names])->render();
@@ -221,6 +225,7 @@ class WorkHubController extends Controller
 
     public function requestForm(Request $request): View
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::OFFBOARDING_REQUEST, $request->user());
         $selected = null;
         if ($request->filled('collaborator_id')) {
             $selected = Collaborator::query()->with('medicalClinic', 'homeCompany')->find($request->integer('collaborator_id'));
@@ -243,6 +248,7 @@ class WorkHubController extends Controller
 
     public function storeRequest(Request $request, OffboardingService $offboarding): RedirectResponse
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::OFFBOARDING_REQUEST, $request->user());
         $validated = $request->validate([
             'collaborator_id' => ['required', 'exists:collaborators,id'],
             'kind' => ['required', 'in:dismissal,transfer'],
@@ -627,6 +633,19 @@ class WorkHubController extends Controller
         };
 
         abort_unless($allowed, 403);
+
+        $activity = match ($project) {
+            'offboarding' => $user->coordinatorWorkbench() && $stage === 'inactivity'
+                ? RhActivitySettings::INACTIVITY
+                : RhActivitySettings::OFFBOARDING,
+            'finance' => RhActivitySettings::FINANCE,
+            'uniforms' => RhActivitySettings::UNIFORMS,
+            default => null,
+        };
+
+        if ($activity) {
+            RhActivitySettings::abortUnlessVisible($activity, $user);
+        }
     }
 
     private function assertProcessReadable(?User $user, OffboardingProcess $process): void

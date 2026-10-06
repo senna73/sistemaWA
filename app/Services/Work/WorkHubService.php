@@ -15,6 +15,7 @@ use App\Models\RhTask;
 use App\Models\User;
 use App\Services\Rh\ClinicPanelService;
 use App\Support\AccessControl;
+use App\Support\RhActivitySettings;
 use Illuminate\Support\Collection;
 
 class WorkHubService
@@ -95,6 +96,50 @@ class WorkHubService
             'done_month' => $done,
             'cliomed' => $weekly,
             'inactivity' => InactivityAudit::query()->where('status', InactivityAudit::STATUS_OPEN_18)->count(),
+            'rh_areas' => $this->rhAreaMirror(),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function rhAreaMirror(): array
+    {
+        $demandSummary = $this->demandQueueSummary();
+
+        return collect($this->projects(auth()->user()))
+            ->map(function (array $project) use ($demandSummary) {
+                if (($project['key'] ?? '') === 'demands') {
+                    $project['url'] = route('demands.index');
+                    $project['kicker'] = $demandSummary['rh'] > 0
+                        ? 'O RH ainda precisa atender'
+                        : ($demandSummary['review'] > 0 ? 'O RH enviou para conferência' : 'Fila em dia');
+                }
+
+                return $project;
+            })
+            ->all();
+    }
+
+    /**
+     * @return array{rh: int, review: int, open: int}
+     */
+    public function demandQueueSummary(): array
+    {
+        $open = \App\Models\OperationalDemand::query()
+            ->where('status', '!=', \App\Models\OperationalDemand::STATUS_DONE)
+            ->get(['status']);
+
+        $rh = $open->whereIn('status', [
+            \App\Models\OperationalDemand::STATUS_AWAITING,
+            \App\Models\OperationalDemand::STATUS_IN_PROGRESS,
+        ])->count();
+        $review = $open->where('status', \App\Models\OperationalDemand::STATUS_REVIEW)->count();
+
+        return [
+            'rh' => $rh,
+            'review' => $review,
+            'open' => $open->count(),
         ];
     }
 
@@ -115,7 +160,25 @@ class WorkHubService
         }
 
         $projects = [];
-        if ($user->managesRhWork() || $user->can(AccessControl::PERMISSION_ACCOUNTING) || $user->isSuperAdmin()) {
+        if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::DEMANDS, $user)) {
+            $demandSummary = $this->demandQueueSummary();
+            $projects[] = [
+                'key' => 'demands',
+                'title' => 'Demandas a atender',
+                'subtitle' => 'Fila operacional do RH: Pix, cadastro, declaração e pedidos da loja.',
+                'badge' => $this->formatDemandBadge($demandSummary),
+                'needs_action' => $demandSummary['rh'] > 0,
+                'kicker' => $demandSummary['rh'] > 0
+                    ? 'Aguardando o RH'
+                    : ($demandSummary['review'] > 0 ? 'Em conferência' : 'Em dia'),
+                'url' => $user->isRh() ? route('work.demands') : route('demands.index'),
+            ];
+        }
+
+        if (
+            ($user->managesRhWork() || $user->can(AccessControl::PERMISSION_ACCOUNTING) || $user->isSuperAdmin())
+            && RhActivitySettings::visible(RhActivitySettings::OFFBOARDING, $user)
+        ) {
             $rh = $this->rhDutyCount();
             $gestor = $this->gestorDutyCount();
             $projects[] = [
@@ -129,7 +192,7 @@ class WorkHubService
             ];
         }
 
-        if ($user->managesRhWork()) {
+        if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::CLIOMED, $user)) {
             $weekly = $this->clinics->weeklyState($this->clinics->ensureWeeklyCheck());
             $projects[] = [
                 'key' => 'cliomed',
@@ -143,7 +206,10 @@ class WorkHubService
             ];
         }
 
-        if ($user->can(\App\Support\PopCatalog::PERMISSION_ACCOUNTING_LIST) || $user->isSuperAdmin()) {
+        if (
+            ($user->can(\App\Support\PopCatalog::PERMISSION_ACCOUNTING_LIST) || $user->isSuperAdmin())
+            && RhActivitySettings::visible(RhActivitySettings::ACCOUNTING, $user)
+        ) {
             $openAccounting = \App\Models\AccountingListRow::query()->whereNull('resolved_at')->where('bucket', '!=', \App\Models\AccountingListRow::BUCKET_OK)->count();
             $projects[] = [
                 'key' => 'accounting',
@@ -156,7 +222,7 @@ class WorkHubService
             ];
         }
 
-        if ($user->managesRhWork()) {
+        if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::RELEASES, $user)) {
             $pendingReleases = \App\Models\DailyRateReleaseRequest::query()
                 ->where('status', \App\Models\DailyRateReleaseRequest::STATUS_PENDING)
                 ->count();
@@ -169,7 +235,9 @@ class WorkHubService
                 'kicker' => $pendingReleases > 0 ? 'Aguardando o RH' : 'Em dia',
                 'url' => route('work.releases.index'),
             ];
+        }
 
+        if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::FINANCE, $user)) {
             $financePending = FinancialBatches::query()->whereIn('status', ['pending', 'processing'])->count();
             $projects[] = [
                 'key' => 'finance',
@@ -180,6 +248,9 @@ class WorkHubService
                 'kicker' => $financePending > 0 ? 'Pendência financeira' : 'Em dia',
                 'url' => route('work.project', 'finance'),
             ];
+        }
+
+        if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::UNIFORMS, $user)) {
             $uniformTasks = CollaboratorUniform::query()->whereNull('delivered_at')->count();
             $projects[] = [
                 'key' => 'uniforms',
@@ -212,8 +283,10 @@ class WorkHubService
             ])
             ->count();
 
-        return [
-            [
+        $projects = [];
+
+        if (RhActivitySettings::visible(RhActivitySettings::RELEASES, $user)) {
+            $projects[] = [
                 'key' => 'releases',
                 'title' => 'Liberação de diária',
                 'subtitle' => 'Peça ao RH a liberação para lançar uma diária bloqueada.',
@@ -221,8 +294,11 @@ class WorkHubService
                 'needs_action' => true,
                 'kicker' => 'Pedido do coordenador',
                 'url' => route('work.releases.create'),
-            ],
-            [
+            ];
+        }
+
+        if (RhActivitySettings::visible(RhActivitySettings::INACTIVITY, $user)) {
+            $projects[] = [
                 'key' => 'inactivity',
                 'title' => 'Inatividade da equipe',
                 'subtitle' => 'Justifique 18 dias sem diária ou peça a liberação.',
@@ -230,8 +306,10 @@ class WorkHubService
                 'needs_action' => $openInactivity > 0,
                 'kicker' => $openInactivity > 0 ? 'Resposta do coordenador' : 'Em dia',
                 'url' => route('work.project', ['project' => 'offboarding', 'stage' => 'inactivity']),
-            ],
-        ];
+            ];
+        }
+
+        return $projects;
     }
 
     public function storeBoard(?string $stage = null): array
@@ -549,7 +627,8 @@ class WorkHubService
                 'tag' => $audit->status === InactivityAudit::STATUS_OPEN_25 ? 'Revisão 25 dias' : '18 dias sem diária',
                 'title' => $collaborator->name,
                 'name' => $collaborator->name,
-                'store' => $collaborator->homeCompany?->name ?? ($collaborator->group ?: '—'),
+                'store' => $collaborator->homeCompany?->name ?: '—',
+                'whatsapp_group' => $collaborator->group ?: '—',
                 'body' => $audit->days_without_daily.' dias sem diária',
                 'days_without_daily' => $audit->days_without_daily,
                 'justify_url' => route('work.inactivity.response', $audit),
@@ -699,6 +778,26 @@ class WorkHubService
         }
         if ($gestor > 0) {
             $parts[] = $gestor.' '.($gestor === 1 ? 'análise' : 'análises');
+        }
+
+        return $parts === [] ? 'Nada pendente' : implode(' · ', $parts);
+    }
+
+    /**
+     * @param  array{rh: int, review: int, open: int}  $summary
+     */
+    private function formatDemandBadge(array $summary): string
+    {
+        if ($summary['open'] === 0) {
+            return 'Nada pendente';
+        }
+
+        $parts = [];
+        if ($summary['rh'] > 0) {
+            $parts[] = $summary['rh'].' com o RH';
+        }
+        if ($summary['review'] > 0) {
+            $parts[] = $summary['review'].' em conferência';
         }
 
         return $parts === [] ? 'Nada pendente' : implode(' · ', $parts);

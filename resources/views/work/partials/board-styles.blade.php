@@ -17,6 +17,19 @@
         max-width: 280px;
         min-height: 16rem;
     }
+    .store-board-stack {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+        overflow-x: visible;
+        align-items: stretch;
+    }
+    .store-board-stack .store-col {
+        flex: none;
+        width: auto;
+        min-width: 0;
+        max-width: none;
+        min-height: 12rem;
+    }
     .store-col {
         flex: 1 1 280px;
         max-width: 320px;

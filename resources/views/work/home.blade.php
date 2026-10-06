@@ -39,6 +39,10 @@
                 <div><strong>{{ $open_tasks }}</strong><span>Tarefas abertas</span></div>
                 <div><strong>{{ $open_processes }}</strong><span>Processos em andamento</span></div>
                 <div><strong>{{ $done_month }}</strong><span>Concluídos no mês</span></div>
+                @if (app(\App\Services\Work\WorkHubService::class)->seesGestorDuty($user)
+                    && \App\Support\RhActivitySettings::visible(\App\Support\RhActivitySettings::INBOX, $user))
+                    <a class="work-stat-link" href="{{ route('rh.inbox') }}">Acompanhamento RH</a>
+                @endif
             </div>
             @endunless
         </div>
@@ -47,6 +51,7 @@
         @include('work.partials.board-styles')
 
         @can('Solicitar desligamento')
+        @if (\App\Support\RhActivitySettings::visible(\App\Support\RhActivitySettings::OFFBOARDING_REQUEST, $user))
         <div class="mb-4">
             <h5 class="work-section-title">Pedido do coordenador</h5>
             <div class="work-areas">
@@ -61,8 +66,10 @@
                 </a>
             </div>
         </div>
+        @endif
         @endcan
 
+        @if (count($projects))
         <div class="mb-4">
             <h5 class="work-section-title">Suas áreas</h5>
             <div class="work-areas">
@@ -81,6 +88,7 @@
                 @endforeach
             </div>
         </div>
+        @endif
 
         @if (app()->environment('testing'))
             <div class="card mb-4 border-warning">
@@ -138,6 +146,20 @@
         }
         .work-stats strong { display: block; font-size: 1.35rem; color: #111827; line-height: 1.1; }
         .work-stats span { display: block; margin-top: 0.2rem; font-size: 0.75rem; color: #6b7280; }
+        .work-stat-link {
+            display: inline-flex;
+            align-items: center;
+            min-width: 7.5rem;
+            padding: 0.7rem 0.85rem;
+            border-radius: 12px;
+            background: #eef2ff;
+            border: 1px solid #c7d2fe;
+            color: #3730a3;
+            font-size: 0.82rem;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        .work-stat-link:hover { color: #312e81; border-color: #6366f1; }
         .work-section-title { font-size: 1rem; font-weight: 700; margin: 0 0 0.75rem; color: #111827; }
         .work-kicker {
             font-size: 0.68rem;

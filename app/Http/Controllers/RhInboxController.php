@@ -7,6 +7,7 @@ use App\Models\OffboardingProcess;
 use App\Models\RhTask;
 use App\Services\Rh\OffboardingService;
 use App\Services\Work\WorkHubService;
+use App\Support\RhActivitySettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -16,8 +17,14 @@ class RhInboxController extends Controller
     public function index(Request $request, WorkHubService $hub): View
     {
         abort_unless($hub->seesGestorDuty($request->user()), 403);
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::INBOX, $request->user());
 
-        return view('app.rh.inbox', $hub->rhProgress());
+        $focus = $request->query('focus', 'open');
+        if (! in_array($focus, ['open', 'rh', 'gestor', 'wait'], true)) {
+            $focus = 'open';
+        }
+
+        return view('app.rh.inbox', $hub->rhProgress() + ['focus' => $focus]);
     }
 
     public function decideReallocate(Request $request, RhTask $task, OffboardingService $offboarding): RedirectResponse
@@ -84,6 +91,7 @@ class RhInboxController extends Controller
 
     public function requestForCollaborator(Request $request, Collaborator $collaborator, OffboardingService $offboarding): RedirectResponse
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::OFFBOARDING_REQUEST, $request->user());
         $validated = $request->validate([
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);

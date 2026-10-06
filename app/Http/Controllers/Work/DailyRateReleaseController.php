@@ -7,6 +7,7 @@ use App\Models\Collaborator;
 use App\Models\Company;
 use App\Models\DailyRateReleaseRequest;
 use App\Services\Rh\DailyRateReleaseService;
+use App\Support\RhActivitySettings;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -15,6 +16,7 @@ class DailyRateReleaseController extends Controller
 {
     public function index(DailyRateReleaseService $releases): View
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::RELEASES, request()->user());
         $items = DailyRateReleaseRequest::query()
             ->with(['collaborator', 'company', 'requester', 'reviewer'])
             ->when(
@@ -33,6 +35,7 @@ class DailyRateReleaseController extends Controller
 
     public function create(Request $request): View
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::RELEASES, $request->user());
         $collaborator = $request->filled('collaborator_id')
             ? Collaborator::query()->find($request->integer('collaborator_id'))
             : null;
@@ -45,6 +48,7 @@ class DailyRateReleaseController extends Controller
 
     public function store(Request $request, DailyRateReleaseService $releases): RedirectResponse
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::RELEASES, $request->user());
         $validated = $request->validate([
             'collaborator_id' => ['required', 'exists:collaborators,id'],
             'company_id' => ['nullable', 'exists:companies,id'],
@@ -67,6 +71,7 @@ class DailyRateReleaseController extends Controller
 
     public function decide(Request $request, DailyRateReleaseRequest $release, DailyRateReleaseService $releases): RedirectResponse
     {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::RELEASES, $request->user());
         $validated = $request->validate([
             'decision' => ['required', 'in:approve,refuse'],
             'notes' => ['nullable', 'string'],

@@ -205,7 +205,7 @@
             $duty = $process->duty();
             $daysWithout = (int) ($c?->daysWithoutDaily() ?? 0);
             $daysTone = $daysWithout >= 90 ? 'hot' : ($daysWithout >= 25 ? 'warn' : '');
-            $store = trim((string) ($c?->homeCompany?->name ?: ($c?->group ?? '')));
+            $store = trim((string) ($c?->homeCompany?->name ?? ''));
             $storeLabel = ($store === '' || $store === '—') ? 'Sem loja vinculada' : $store;
             $lastWork = $process->last_work_day ?? $c?->lastDailyAt();
             $steps = $process->popSteps();
@@ -250,7 +250,7 @@
                         <span class="ficha-chip">Loja <strong>{{ $storeLabel }}</strong></span>
                         <span class="ficha-chip">Função <strong>{{ $c?->job_title ?: '—' }}</strong></span>
                         <span class="ficha-chip">Tel <strong>{{ $c?->mobile ?: '—' }}</strong></span>
-                        <span class="ficha-chip">Grupo <strong>{{ $c?->group ?: '—' }}</strong></span>
+                        <span class="ficha-chip">Grupo WhatsApp <strong>{{ $c?->group ?: '—' }}</strong></span>
                         <span class="ficha-chip">{{ $situation }}</span>
                     </div>
 

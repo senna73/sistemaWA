@@ -11,7 +11,8 @@
                     <dt class="col-sm-4">Telefone</dt><dd class="col-sm-8">{{ $collaborator->mobile ?: '—' }}</dd>
                     <dt class="col-sm-4">CPF</dt><dd class="col-sm-8">{{ $collaborator->document ?: '—' }}</dd>
                     <dt class="col-sm-4">Cidade</dt><dd class="col-sm-8">{{ $collaborator->city ?: '—' }}</dd>
-                    <dt class="col-sm-4">Loja ou grupo atual</dt><dd class="col-sm-8">{{ $collaborator->homeCompany?->name ?: ($collaborator->group ?: '—') }}</dd>
+                    <dt class="col-sm-4">Estabelecimento</dt><dd class="col-sm-8">{{ $collaborator->homeCompany?->name ?: '—' }}</dd>
+                    <dt class="col-sm-4">Grupo WhatsApp</dt><dd class="col-sm-8">{{ $collaborator->group ?: '—' }}</dd>
                     <dt class="col-sm-4">Função</dt><dd class="col-sm-8">{{ $collaborator->job_title ?: '—' }}</dd>
                     <dt class="col-sm-4">Coordenador responsável</dt><dd class="col-sm-8">{{ $collaborator->homeCompany?->coordinator?->name ?: '—' }}</dd>
                     <dt class="col-sm-4">Status no sistema WA</dt><dd class="col-sm-8">{{ $collaborator->active ? 'Ativo' : 'Inativo' }}</dd>

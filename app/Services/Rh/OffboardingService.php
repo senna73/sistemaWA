@@ -458,11 +458,9 @@ class OffboardingService
                 'blocks_daily_rates' => false,
             ]);
 
-            $company = \App\Models\Company::query()->find($companyId);
             $process->collaborator->update([
                 'home_company_id' => $companyId,
                 'job_title' => $role ?? $process->collaborator->job_title,
-                'group' => $company?->name ?? $process->collaborator->group,
             ]);
 
             $this->whatsApp->notifyGroupMove($process);

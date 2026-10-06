@@ -8,6 +8,7 @@ use App\Models\CollaboratorWalletTransactions;
 use App\Models\OffboardingProcess;
 use App\Services\Rh\OffboardingService;
 use App\Support\AccessControl;
+use App\Support\QuinzenaPeriod;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -71,17 +72,35 @@ class CollaboratorPortalController extends Controller
         $context = $this->portalContext($request);
         $collaborator = $context['collaborator'];
 
+        $validated = $request->validate([
+            'month' => ['nullable', 'date_format:Y-m'],
+            'quinzena' => ['nullable', 'in:1,2'],
+        ]);
+
+        $month = $validated['month'] ?? now()->format('Y-m');
+        $quinzena = isset($validated['quinzena'])
+            ? (int) $validated['quinzena']
+            : QuinzenaPeriod::currentQuinzena();
+        [$from, $to] = QuinzenaPeriod::range($month, $quinzena);
+        [, $secondQuinzenaTo] = QuinzenaPeriod::range($month, 2);
+
         $dailyRates = $collaborator
             ? $collaborator->dailyRates()
                 ->with('company')
                 ->where('active', true)
-                ->orderByDesc('start')
+                ->whereBetween('start', [$from, $to])
+                ->orderBy('start')
                 ->paginate(20)
                 ->withQueryString()
             : null;
 
         return view('app.portal.daily-rates', array_merge($context, [
             'dailyRates' => $dailyRates,
+            'month' => $month,
+            'quinzena' => $quinzena,
+            'quinzenaFrom' => $from,
+            'quinzenaTo' => $to,
+            'secondQuinzenaTo' => $secondQuinzenaTo,
         ]));
     }
 
@@ -111,6 +130,12 @@ class CollaboratorPortalController extends Controller
         return view('app.portal.requests', array_merge($context, [
             'demands' => $demands,
             'categories' => \App\Support\PopCatalog::collaboratorRequestCategories(),
+            'groups' => Collaborator::query()
+                ->whereNotNull('group')
+                ->where('group', '!=', '')
+                ->distinct()
+                ->orderBy('group')
+                ->pluck('group'),
             'canRequest' => (bool) $request->user()?->collaborator_id && $collaborator && (int) $request->user()->collaborator_id === (int) $collaborator->id,
         ]));
     }
@@ -122,18 +147,30 @@ class CollaboratorPortalController extends Controller
             'category' => ['required', 'in:'.implode(',', array_keys(\App\Support\PopCatalog::collaboratorRequestCategories()))],
             'request_text' => ['required', 'string', 'max:4000'],
             'pix_key' => ['nullable', 'string', 'max:255'],
+            'payload' => ['nullable', 'array'],
+            'payload.pix_key' => ['nullable', 'string', 'max:255'],
+            'payload.group' => ['nullable', 'string', 'max:255'],
+            'payload.name' => ['nullable', 'string', 'max:255'],
+            'payload.mobile' => ['nullable', 'string', 'max:30'],
+            'payload.document' => ['nullable', 'string', 'max:30'],
             'attachments' => ['nullable', 'array', 'max:3'],
             'attachments.*' => ['file', 'max:5120'],
         ]);
 
-        if ($validated['category'] === 'troca_pix' && blank($validated['pix_key'] ?? null)) {
-            return back()->withErrors(['pix_key' => 'Informe a nova chave Pix.'])->withInput();
+        if ($validated['category'] === 'troca_pix') {
+            $validated['payload']['pix_key'] = $validated['pix_key'] ?? ($validated['payload']['pix_key'] ?? null);
+            if (blank($validated['payload']['pix_key'] ?? null)) {
+                return back()->withErrors(['pix_key' => 'Informe a nova chave Pix.'])->withInput();
+            }
         }
 
-        $payload = $validated['category'] === 'troca_pix' ? ['pix_key' => $validated['pix_key']] : null;
+        $payload = \App\Support\PopCatalog::payloadFromInput($validated['category'], $validated);
         $text = $validated['request_text'];
-        if ($payload) {
+        if (($payload['pix_key'] ?? null)) {
             $text = 'Nova chave Pix: '.$payload['pix_key']."\n".$text;
+        }
+        if (($payload['group'] ?? null)) {
+            $text = 'Grupo WhatsApp destino: '.$payload['group']."\n".$text;
         }
 
         $this->openCollaboratorRequest(

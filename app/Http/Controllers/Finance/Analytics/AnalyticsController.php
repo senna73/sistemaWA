@@ -168,9 +168,9 @@ class AnalyticsController extends Controller
         
         $headerGroupNames = !empty($selectedGroups)
             ? array_filter($selectedGroups, fn($v) => $v !== 'null')
-            : ['Todos os grupos'];
+            : ['Todos os grupos WhatsApp'];
 
-        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem Grupo';
+        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem grupo WhatsApp';
         
         $headerClinicNames = !empty($selectedClinics)
             ? MedicalClinic::whereIn('id', array_filter($selectedClinics, fn($v) => $v !== 'null'))->pluck('name')->toArray()
@@ -233,7 +233,7 @@ class AnalyticsController extends Controller
 
                 return [
                     'name'               => $collab->name,
-                    'group'              => $collab->group ?: 'Sem Grupo',
+                    'group'              => $collab->group ?: 'Sem grupo WhatsApp',
                     'mobile'             => $collab->mobile ?: 'Sem número',
                     'city'               => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
                     'created_at_fmt'     => $collab->created_at->format('d/m/Y'), 
@@ -295,8 +295,8 @@ class AnalyticsController extends Controller
 
         $headerGroupNames = !empty($selectedGroups)
             ? array_filter($selectedGroups, fn($v) => $v !== 'null')
-            : ['Todos os grupos'];
-        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem Grupo';
+            : ['Todos os grupos WhatsApp'];
+        if (in_array('null', $selectedGroups)) $headerGroupNames[] = 'Sem grupo WhatsApp';
 
         $query = Collaborator::where('active', true);
         $this->applyCityFilter($query, $selectedCities);
@@ -317,7 +317,7 @@ class AnalyticsController extends Controller
                 'name'              => $collab->name,
                 'mobile'            => $collab->mobile ?: 'Sem número cadastrado',
                 'city'              => $collab->cities->pluck('name')->implode(', ') ?: 'N/D',
-                'group'             => $collab->group ?: 'Sem Grupo',
+                'group'             => $collab->group ?: 'Sem grupo WhatsApp',
                 'created_at_fmt'    => $collab->created_at ? $collab->created_at->format('d/m/Y') : 'N/D', 
                 'daily_rates_count' => $collab->daily_rates_count
             ];

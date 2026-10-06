@@ -17,10 +17,10 @@
                         <input type="hidden" name="months" value="{{ request('months', 1) }}">
                         
                         <div class="col-md-3 col-sm-6">
-                            <label class="small fw-bold text-muted mb-1">Filtrar por Grupo</label>
+                            <label class="small fw-bold text-muted mb-1">Filtrar por grupo WhatsApp</label>
                             <select name="group_ids[]" id="groupSelect" class="form-select select2" multiple>
                                 <option value="null" {{ in_array('null', (array)request('group_ids')) ? 'selected' : '' }}>
-                                    (Sem grupo registrado)
+                                    (Sem grupo WhatsApp)
                                 </option>
                                 @foreach($groups as $group)
                                     <option value="{{ $group }}" {{ in_array($group, (array)request('group_ids')) ? 'selected' : '' }}>

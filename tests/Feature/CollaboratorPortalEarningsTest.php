@@ -148,11 +148,16 @@ it('lets a super admin open cadastro and daily rates as the collaborator', funct
         ->assertDontSee('Pedir demissão');
 
     $this->actingAs($admin)
-        ->get(route('portal.daily-rates', ['collaborator_id' => $collaborator->id]))
+        ->get(route('portal.daily-rates', [
+            'collaborator_id' => $collaborator->id,
+            'month' => '2026-09',
+            'quinzena' => 1,
+        ]))
         ->assertOk()
         ->assertSee('Ana Portal')
-        ->assertSee('88,00')
-        ->assertSee('A receber');
+        ->assertSee('01/09/2026')
+        ->assertSee('A receber')
+        ->assertDontSee('88,00');
 });
 
 it('lets a collaborator request a pix change as an activity', function () {
@@ -225,6 +230,62 @@ it('lets a collaborator see wallet and daily rates when the super admin releases
         ->assertOk()
         ->assertSee('150,75')
         ->assertSee('Quanto você vai receber');
+});
+
+it('hides daily rate values and lists by quinzena for the collaborator', function () {
+    \App\Models\ConfigTable::putBool(\App\Models\ConfigTable::PORTAL_DAILY_RATES, true);
+
+    $user = portalCollaboratorUser();
+    $section = Section::query()->create(['name' => 'Caixa']);
+    $company = \App\Models\Company::query()->create(['name' => 'Loja Centro', 'coordinator_value' => 0]);
+
+    foreach ([
+        ['start' => '2026-10-01 08:00:00', 'pay' => 111],
+        ['start' => '2026-10-15 08:00:00', 'pay' => 222],
+        ['start' => '2026-10-16 08:00:00', 'pay' => 333],
+        ['start' => '2026-10-31 08:00:00', 'pay' => 444],
+        ['start' => '2026-02-28 08:00:00', 'pay' => 555],
+    ] as $row) {
+        DailyRate::forceCreate([
+            'collaborator_id' => $user->collaborator_id,
+            'section_id' => $section->id,
+            'company_id' => $company->id,
+            'start' => $row['start'],
+            'end' => $row['start'],
+            'pay_amount' => $row['pay'],
+            'active' => true,
+            'status' => 'criado',
+        ]);
+    }
+
+    $this->actingAs($user)
+        ->get(route('portal.daily-rates', ['month' => '2026-10', 'quinzena' => 1]))
+        ->assertOk()
+        ->assertSee('1ª (1 a 15)')
+        ->assertSee('01/10/2026')
+        ->assertSee('15/10/2026')
+        ->assertSee('Loja Centro')
+        ->assertDontSee('16/10/2026')
+        ->assertDontSee('31/10/2026')
+        ->assertDontSee('111,00')
+        ->assertDontSee('222,00');
+
+    $this->actingAs($user)
+        ->get(route('portal.daily-rates', ['month' => '2026-10', 'quinzena' => 2]))
+        ->assertOk()
+        ->assertSee('2ª (16 a 31)')
+        ->assertSee('16/10/2026')
+        ->assertSee('31/10/2026')
+        ->assertDontSee('01/10/2026')
+        ->assertDontSee('15/10/2026')
+        ->assertDontSee('444,00');
+
+    $this->actingAs($user)
+        ->get(route('portal.daily-rates', ['month' => '2026-02', 'quinzena' => 2]))
+        ->assertOk()
+        ->assertSee('2ª (16 a 28)')
+        ->assertSee('28/02/2026')
+        ->assertDontSee('555,00');
 });
 
 it('can release earnings without releasing daily rates', function () {

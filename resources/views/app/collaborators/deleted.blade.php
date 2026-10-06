@@ -18,7 +18,7 @@
                         <tr>
                             <th>Nome</th>
                             <th>CPF</th>
-                            <th>Grupo</th>
+                            <th>Grupo WhatsApp</th>
                             <th>Diárias</th>
                             <th>Atualizado em</th>
                             <th class="text-center" style="width: 90px;">Relatórios</th>

@@ -50,9 +50,9 @@
                     @endif
 
                     <div class="mb-3">
-                        <label class="form-label" for="group">Grupo</label>
+                        <label class="form-label" for="group">Grupo WhatsApp</label>
                         <select class="form-control select2-tags" id="group" name="group">
-                            <option value="">Selecione ou digite um grupo</option>
+                            <option value="">Selecione ou digite o grupo WhatsApp</option>
                             @foreach ($groups as $groupOption)
                                 <option value="{{ $groupOption }}"
                                     {{ old('group', $collaborator?->group ?? '') == $groupOption ? 'selected' : '' }}>
@@ -199,7 +199,7 @@
 
         $('.select2-tags').select2({
             tags: true,
-            placeholder: "Selecione ou digite um grupo",
+            placeholder: "Selecione ou digite o grupo WhatsApp",
             allowClear: true,
             createTag: function(params) {
                 var term = $.trim(params.term);

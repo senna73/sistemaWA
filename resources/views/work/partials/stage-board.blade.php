@@ -4,6 +4,13 @@
     $showOpenings = $showOpenings ?? false;
     $showExcess = $showExcess ?? false;
     $showDutyLegend = $showDutyLegend ?? false;
+    $boardLayout = $boardLayout ?? 'kanban';
+    $columnLabel = $columnLabel ?? 'etapas';
+    $peopleLabel = $peopleLabel ?? 'pessoas no fluxo';
+    $hideEmptyColumns = $hideEmptyColumns ?? false;
+    $visibleColumns = collect($board['columns'] ?? [])
+        ->when($hideEmptyColumns, fn ($columns) => $columns->filter(fn (array $column) => ($column['cards'] ?? []) !== []))
+        ->values();
 @endphp
 
 @if ($showDutyLegend)
@@ -19,8 +26,8 @@
             <h5 class="mb-1">{{ $boardTitle }}</h5>
             <p class="text-muted small mb-2">{{ $boardHint }}</p>
             <div class="store-board-stats">
-                <span><strong>{{ $board['store_count'] }}</strong> etapas</span>
-                <span><strong>{{ $board['opening_count'] }}</strong> pessoas no fluxo</span>
+                <span><strong>{{ $visibleColumns->count() }}</strong> {{ $columnLabel }}</span>
+                <span><strong>{{ $board['opening_count'] }}</strong> {{ $peopleLabel }}</span>
                 @if ($showOpenings)
                     <span><strong>{{ $board['openings'] }}</strong> vagas abertas</span>
                 @endif
@@ -32,8 +39,8 @@
         <input class="form-control form-control-sm store-filter" type="search" placeholder="Filtrar etapa ou pessoa..." data-store-filter>
     </div>
 
-    <div class="store-board store-board-kanban">
-        @foreach ($board['columns'] as $column)
+    <div class="store-board store-board-{{ $boardLayout }}">
+        @forelse ($visibleColumns as $column)
             <section class="store-col" data-store="{{ mb_strtolower($column['name']) }}" data-stage="{{ $column['id'] }}">
                 <header class="store-col-head">
                     <h3>{{ $column['name'] }}</h3>
@@ -44,7 +51,7 @@
                 <div class="store-col-body">
                     @foreach ($column['cards'] as $card)
                         @php
-                            $search = mb_strtolower(($card['title'] ?? '').' '.($card['store'] ?? '').' '.($card['tag'] ?? '').' '.$column['name']);
+                            $search = mb_strtolower(($card['title'] ?? '').' '.($card['store'] ?? '').' '.($card['whatsapp_group'] ?? '').' '.($card['tag'] ?? '').' '.$column['name']);
                         @endphp
                         @if (! empty($card['slug']))
                             <button type="button"
@@ -54,7 +61,11 @@
                                 data-open-demo-modal="demo-card-{{ $card['slug'] }}">
                                 <div class="store-tag">{{ $card['tag'] }}</div>
                                 <h4>{{ $card['title'] }}</h4>
-                                <p>{{ $card['store'] ?? '' }} · {{ $card['body'] }}</p>
+                                <p>
+                                    @if (! empty($card['store']) && $card['store'] !== '—')Estabelecimento {{ $card['store'] }} · @endif
+                                    @if (! empty($card['whatsapp_group']) && $card['whatsapp_group'] !== '—')Grupo WhatsApp {{ $card['whatsapp_group'] }} · @endif
+                                    {{ $card['body'] }}
+                                </p>
                                 @if (! empty($card['duty_label']))
                                     <div class="store-duty">{{ $card['duty_label'] }}</div>
                                 @endif
@@ -70,11 +81,13 @@
                     @endforeach
                 </div>
             </section>
-        @endforeach
+        @empty
+            <div class="text-muted px-2 py-3">Nenhum card neste quadro agora.</div>
+        @endforelse
     </div>
 </div>
 
-@foreach ($board['columns'] as $column)
+@foreach ($visibleColumns as $column)
     @foreach ($column['cards'] as $card)
         @continue(empty($card['slug']))
         <div class="demo-overlay" id="demo-card-{{ $card['slug'] }}" role="dialog" aria-modal="true">
@@ -84,7 +97,7 @@
                     <button type="button" class="demo-overlay-close" data-close-demo-modal aria-label="Fechar">&times;</button>
                 </div>
                 <div class="demo-overlay-body">
-                    @include('work.partials.demo-card-detail', ['card' => $card])
+                    @include($cardDetailView ?? 'work.partials.demo-card-detail', ['card' => $card])
                 </div>
             </div>
         </div>

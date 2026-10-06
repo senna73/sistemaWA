@@ -51,6 +51,59 @@ it('parses hundreds of SCI accounting rows without mutating data', function () {
     expect($rows[0]['admission_on'])->toBe('2024-04-16');
 });
 
+it('parses accounting rows when code comes before the date', function () {
+    $text = <<<'TXT'
+Matrícula Nome Data de admissão
+000001 ALCENIR BRUNETTO 16/04/2024
+18 LUCAS FELIPE COLLAÇO PONTES 13/03/2025
+Total de colaboradores: 2
+TXT;
+
+    $rows = app(AccountingListParser::class)->fromText($text);
+
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['code'])->toBe('000001');
+    expect($rows[0]['name'])->toBe('ALCENIR BRUNETTO');
+    expect($rows[0]['admission_on'])->toBe('2024-04-16');
+    expect($rows[1]['code'])->toBe('000018');
+});
+
+it('parses pdf-like text with spaced date fragments', function () {
+    $text = "16 / 04 / 2024 ALCENIR BRUNETTO 000001\n13 / 03 / 2025 LUCAS FELIPE 000018";
+
+    $rows = app(AccountingListParser::class)->fromText($text);
+
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['admission_on'])->toBe('2024-04-16');
+    expect($rows[1]['code'])->toBe('000018');
+});
+
+it('parses spreadsheet headers using matricula and funcionario', function () {
+    $rows = app(AccountingListParser::class)->fromGrid([
+        ['Matrícula', 'Nome do Funcionário', 'Data de Admissão'],
+        ['1', 'ALCENIR BRUNETTO', '16/04/2024'],
+        ['18', 'LUCAS FELIPE', '13/03/2025'],
+    ]);
+
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['code'])->toBe('000001');
+    expect($rows[1]['name'])->toBe('LUCAS FELIPE');
+});
+
+it('extracts SCI rows from a simple uncompressed PDF', function () {
+    $content = 'BT (16/04/2024ALCENIR BRUNETTO000001) Tj T* (13/03/2025LUCAS FELIPE000018) Tj ET';
+    $pdf = "%PDF-1.4\n1 0 obj\n<< /Length ".strlen($content)." >>\nstream\n".$content."\nendstream\nendobj\n";
+    $path = sys_get_temp_dir().DIRECTORY_SEPARATOR.'lista-sci-teste.pdf';
+    file_put_contents($path, $pdf);
+
+    $rows = app(AccountingListParser::class)->parse($path, 'lista.pdf');
+    unlink($path);
+
+    expect($rows)->toHaveCount(2);
+    expect($rows[0]['name'])->toBe('ALCENIR BRUNETTO');
+    expect($rows[1]['code'])->toBe('000018');
+});
+
 it('parses the SCI accounting list format', function () {
     $text = <<<'TXT'
 Relação por tempo de serviço
@@ -330,6 +383,10 @@ it('turns a collaborator pix request into a linked activity without changing the
     $this->actingAs($rh)
         ->post(route('demands.start', $demand))
         ->assertRedirect();
+    $this->actingAs($rh)
+        ->post(route('demands.apply', $demand), ['payload' => ['pix_key' => 'chave-nova']])
+        ->assertRedirect();
+    expect($collaborator->fresh()->pix_key)->toBe('chave-nova');
     $this->actingAs($rh)
         ->post(route('demands.review', $demand))
         ->assertRedirect();

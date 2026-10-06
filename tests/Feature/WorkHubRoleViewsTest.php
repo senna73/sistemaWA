@@ -1,9 +1,11 @@
 <?php
 
 use App\Models\Collaborator;
+use App\Models\ConfigTable;
 use App\Models\OffboardingProcess;
 use App\Models\User;
 use App\Support\AccessControl;
+use App\Support\RhActivitySettings;
 
 function workHubUser(string $role): User
 {
@@ -23,6 +25,7 @@ it('shows rh management boards to rh and hides them from the coordinator', funct
         ->assertOk()
         ->assertSee('RH Controle')
         ->assertSee('Gestão RH Demissional')
+        ->assertSee('Demandas a atender')
         ->assertSee('Conferência Cliomed')
         ->assertSee('Liberações de diária')
         ->assertSee('Financeiro e DRE')
@@ -36,6 +39,7 @@ it('shows rh management boards to rh and hides them from the coordinator', funct
         ->assertSee('Liberação de diária')
         ->assertSee('Inatividade da equipe')
         ->assertDontSee('Gestão RH Demissional')
+        ->assertDontSee('Demandas a atender')
         ->assertDontSee('Conferência Cliomed')
         ->assertDontSee('Financeiro e DRE')
         ->assertDontSee('Operação e uniformes')
@@ -53,6 +57,10 @@ it('blocks coordinator from rh management routes', function () {
         'origin' => OffboardingProcess::ORIGIN_COORDINATOR,
         'status' => OffboardingProcess::STAGE_ATENDIMENTO_RH,
     ]);
+
+    $this->actingAs($coordinator)
+        ->get(route('work.demands'))
+        ->assertForbidden();
 
     $this->actingAs($coordinator)
         ->get(route('work.project', 'offboarding'))
@@ -83,4 +91,39 @@ it('blocks coordinator from rh management routes', function () {
         ->assertOk()
         ->assertSee('Inatividade da equipe')
         ->assertDontSee('Aguardando atendimento do RH');
+});
+
+it('hides disabled rh activity cards from rh and coordinator screens', function () {
+    ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::DEMANDS), false);
+    ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::OFFBOARDING), false);
+    ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::OFFBOARDING_REQUEST), false);
+
+    $rh = workHubUser('rh');
+    $coordinator = workHubUser('coordinator');
+
+    $this->actingAs($rh)
+        ->get(route('work.home'))
+        ->assertOk()
+        ->assertDontSee('Demandas a atender')
+        ->assertDontSee('Gestão RH Demissional')
+        ->assertSee('Conferência Cliomed');
+
+    $this->actingAs($rh)
+        ->get(route('work.demands'))
+        ->assertForbidden();
+
+    $this->actingAs($rh)
+        ->get(route('work.project', 'offboarding'))
+        ->assertForbidden();
+
+    $this->actingAs($coordinator)
+        ->get(route('work.home'))
+        ->assertOk()
+        ->assertDontSee('Solicitar desligamento')
+        ->assertSee('Liberação de diária')
+        ->assertSee('Inatividade da equipe');
+
+    $this->actingAs($coordinator)
+        ->get(route('work.request'))
+        ->assertForbidden();
 });

@@ -15,12 +15,13 @@ class AccountingListParser
     public function parse(string $path, ?string $originalName = null): array
     {
         $extension = strtolower(pathinfo($originalName ?: $path, PATHINFO_EXTENSION));
+        $head = (string) @file_get_contents($path, false, null, 0, 5);
 
-        if ($extension === 'pdf') {
+        if ($extension === 'pdf' || str_starts_with($head, '%PDF')) {
             return $this->fromText($this->pdfText($path));
         }
 
-        if (in_array($extension, ['xlsx', 'xls'], true)) {
+        if (in_array($extension, ['xlsx', 'xls'], true) || str_starts_with($head, 'PK')) {
             return $this->fromGrid(SimpleXlsx::rows($path));
         }
 
@@ -41,37 +42,17 @@ class AccountingListParser
      */
     public function fromText(string $text): array
     {
+        $text = $this->normalizeExtractedText($text);
         $rows = [];
         $seen = [];
 
         foreach (preg_split('/\R/u', $text) ?: [] as $line) {
-            $parsed = $this->parseSciLine(trim($line));
-            if ($parsed === null) {
-                continue;
-            }
-            $key = $parsed['code'].'|'.$parsed['name'];
-            if (isset($seen[$key])) {
-                continue;
-            }
-            $seen[$key] = true;
-            $rows[] = $parsed;
+            $this->pushRow($rows, $seen, $this->parseSciLine(trim($line)));
         }
 
         if ($rows === []) {
-            $blob = preg_replace('/\s+/u', ' ', $text) ?? $text;
-            if (preg_match_all('/(\d{2}\/\d{2}\/\d{4})\s*(.+?)\s*(\d{6})/u', $blob, $matches, PREG_SET_ORDER)) {
-                foreach ($matches as $match) {
-                    $parsed = $this->normalize(trim($match[2]), $match[3], $match[1]);
-                    if ($parsed === null) {
-                        continue;
-                    }
-                    $key = $parsed['code'].'|'.$parsed['name'];
-                    if (isset($seen[$key])) {
-                        continue;
-                    }
-                    $seen[$key] = true;
-                    $rows[] = $parsed;
-                }
+            foreach ($this->parseBlob($text) as $parsed) {
+                $this->pushRow($rows, $seen, $parsed);
             }
         }
 
@@ -89,35 +70,35 @@ class AccountingListParser
     public function fromGrid(array $grid): array
     {
         $headerAt = $this->headerIndex($grid);
-        if ($headerAt === null) {
-            $joined = [];
-            foreach ($grid as $line) {
-                $joined[] = implode(' ', $line);
+        if ($headerAt !== null) {
+            try {
+                $map = $this->mapColumns($grid[$headerAt]);
+                $rows = [];
+                for ($i = $headerAt + 1; $i < count($grid); $i++) {
+                    $line = $grid[$i];
+                    $parsed = $this->normalize(
+                        trim((string) ($line[$map['name']] ?? '')),
+                        (string) ($line[$map['code']] ?? ''),
+                        trim((string) ($line[$map['admission']] ?? '')),
+                    );
+                    if ($parsed !== null) {
+                        $rows[] = $parsed;
+                    }
+                }
+                if ($rows !== []) {
+                    return $rows;
+                }
+            } catch (InvalidArgumentException) {
+                // Cabeçalho incompleto: tenta o texto das células.
             }
-
-            return $this->fromText(implode("\n", $joined));
         }
 
-        $map = $this->mapColumns($grid[$headerAt]);
-        $rows = [];
-
-        for ($i = $headerAt + 1; $i < count($grid); $i++) {
-            $line = $grid[$i];
-            $parsed = $this->normalize(
-                trim((string) ($line[$map['name']] ?? '')),
-                (string) ($line[$map['code']] ?? ''),
-                trim((string) ($line[$map['admission']] ?? '')),
-            );
-            if ($parsed !== null) {
-                $rows[] = $parsed;
-            }
+        $joined = [];
+        foreach ($grid as $line) {
+            $joined[] = implode(' ', $line);
         }
 
-        if ($rows === []) {
-            throw new InvalidArgumentException('A planilha não tem linhas com nome, código e data de admissão.');
-        }
-
-        return $rows;
+        return $this->fromText(implode("\n", $joined));
     }
 
     /**
@@ -129,11 +110,29 @@ class AccountingListParser
             return null;
         }
 
-        if (! preg_match('/(\d{2}\/\d{2}\/\d{4})\s*(.+?)(\d{6})\s*$/u', $line, $match)) {
-            return null;
+        $line = $this->normalizeExtractedText($line);
+
+        if (preg_match('/(\d{2}\/\d{2}\/\d{2,4})\s*(.+?)(\d{6})\s*$/u', $line, $match)) {
+            return $this->normalize(trim($match[2]), $match[3], $match[1]);
         }
 
-        return $this->normalize(trim($match[2]), $match[3], $match[1]);
+        if (preg_match('/^(\d{1,6})\s+(.+?)\s+(\d{2}\/\d{2}\/\d{2,4})\s*$/u', $line, $match)) {
+            return $this->normalize(trim($match[2]), $match[1], $match[3]);
+        }
+
+        if (preg_match('/^([A-Za-zÀ-ÿ].+?)\s+(\d{1,6})\s+(\d{2}\/\d{2}\/\d{2,4})\s*$/u', $line, $match)) {
+            return $this->normalize(trim($match[1]), $match[2], $match[3]);
+        }
+
+        if (preg_match('/^([A-Za-zÀ-ÿ].+?)\s+(\d{2}\/\d{2}\/\d{2,4})\s+(\d{1,6})\s*$/u', $line, $match)) {
+            return $this->normalize(trim($match[1]), $match[3], $match[2]);
+        }
+
+        if (preg_match('/(\d{2}\/\d{2}\/\d{2,4})\s+(\d{1,6})\s+(.+)$/u', $line, $match)) {
+            return $this->normalize(trim($match[3]), $match[2], $match[1]);
+        }
+
+        return null;
     }
 
     /**
@@ -141,17 +140,28 @@ class AccountingListParser
      */
     private function normalize(string $name, string $code, string $admission): ?array
     {
-        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+        $name = $this->cleanName($name);
         $digits = preg_replace('/\D/', '', $code) ?: '';
         if ($name === '' || PersonName::key($name) === '' || strlen($digits) < 1) {
             return null;
         }
 
+        $admission = trim($admission);
         try {
-            $date = str_contains($admission, '/')
-                ? Carbon::createFromFormat('d/m/Y', $admission)
-                : Carbon::parse($admission);
+            if (preg_match('/^\d{5}(\.\d+)?$/', $admission)) {
+                $date = Carbon::create(1899, 12, 30)?->addDays((int) $admission);
+            } elseif (preg_match('/^\d{2}\/\d{2}\/\d{2}$/', $admission)) {
+                $date = Carbon::createFromFormat('d/m/y', $admission);
+            } elseif (str_contains($admission, '/')) {
+                $date = Carbon::createFromFormat('d/m/Y', $admission);
+            } else {
+                $date = Carbon::parse($admission);
+            }
         } catch (\Throwable) {
+            return null;
+        }
+
+        if (! $date) {
             return null;
         }
 
@@ -172,12 +182,8 @@ class AccountingListParser
         $out = '';
         if (preg_match_all('/stream\r?\n(.*?)endstream/s', $data, $streams)) {
             foreach ($streams[1] as $stream) {
-                $raw = ltrim($stream, "\r\n");
-                $decoded = @gzuncompress($raw);
-                if ($decoded === false) {
-                    $decoded = @gzinflate($raw);
-                }
-                if (! is_string($decoded) || $decoded === '') {
+                $decoded = $this->inflate($stream);
+                if ($decoded === null) {
                     continue;
                 }
                 $out .= $this->pdfOperators($decoded)."\n";
@@ -190,37 +196,108 @@ class AccountingListParser
 
         $out = preg_replace('/[^\P{C}\n]+/u', ' ', $out) ?? $out;
 
-        return $out;
+        return $this->normalizeExtractedText($out);
+    }
+
+    private function inflate(string $raw): ?string
+    {
+        $raw = preg_replace('/^\r?\n/', '', $raw) ?? $raw;
+        foreach ([$raw, substr($raw, 2)] as $payload) {
+            if (! is_string($payload) || $payload === '') {
+                continue;
+            }
+            foreach (['gzuncompress', 'gzinflate'] as $fn) {
+                $decoded = @$fn($payload);
+                if (is_string($decoded) && $decoded !== '') {
+                    return $decoded;
+                }
+            }
+        }
+
+        return null;
     }
 
     private function pdfOperators(string $decoded): string
     {
-        $text = '';
-        if (preg_match_all('/\((\\\\.|[^\\\\)])*\)\s*Tj/s', $decoded, $matches)) {
-            foreach ($matches[0] as $token) {
-                if (preg_match('/^\((.*)\)\s*Tj/s', $token, $inner)) {
-                    $text .= $this->unescapePdf($inner[1]);
-                }
+        $chunks = [];
+        $offset = 0;
+        $pattern = '/\((?:\\\\.|[^\\\\)])*\)\s*Tj|<([0-9A-Fa-f\s]+)>\s*Tj|\[(.*?)\]\s*TJ|T\*|\'/s';
+
+        while (preg_match($pattern, $decoded, $match, PREG_OFFSET_CAPTURE, $offset)) {
+            $full = $match[0][0];
+            $at = (int) $match[0][1];
+            $offset = $at + strlen($full);
+
+            if ($full === 'T*' || $full === "'") {
+                $chunks[] = "\n";
+                continue;
             }
-        }
-        if (preg_match_all('/\[(.*?)\]\s*TJ/s', $decoded, $tj)) {
-            foreach ($tj[1] as $array) {
-                if (preg_match_all('/\((\\\\.|[^\\\\)])*\)/s', $array, $parts)) {
-                    foreach ($parts[0] as $part) {
-                        $text .= $this->unescapePdf(substr($part, 1, -1));
+
+            if (str_ends_with(rtrim($full), 'Tj') && str_starts_with($full, '(')) {
+                if (preg_match('/^\((.*)\)\s*Tj/s', $full, $inner)) {
+                    $chunks[] = $this->unescapePdf($inner[1]);
+                }
+                continue;
+            }
+
+            if (isset($match[1][0]) && $match[1][0] !== '' && str_contains($full, 'Tj')) {
+                $chunks[] = $this->decodePdfHex($match[1][0]);
+                continue;
+            }
+
+            if (isset($match[2][0]) && str_contains($full, 'TJ')) {
+                $array = $match[2][0];
+                $piece = '';
+                if (preg_match_all('/\((\\\\.|[^\\\\)])*\)|<([0-9A-Fa-f\s]+)>/s', $array, $parts, PREG_SET_ORDER)) {
+                    foreach ($parts as $part) {
+                        if (str_starts_with($part[0], '(')) {
+                            $piece .= $this->unescapePdf(substr($part[0], 1, -1));
+                        } else {
+                            $piece .= $this->decodePdfHex($part[2] ?? '');
+                        }
                     }
                 }
+                $chunks[] = $piece;
             }
         }
 
-        return $text;
+        if ($chunks === []) {
+            return '';
+        }
+
+        return implode(' ', $chunks);
     }
 
     private function unescapePdf(string $value): string
     {
-        $value = str_replace(['\\n', '\\r', '\\t', '\\(', '\\)'], ["\n", "\r", "\t", '(', ')'], $value);
+        $value = str_replace(['\\n', '\\r', '\\t', '\\(', '\\)', '\\\\'], ["\n", "\r", "\t", '(', ')', '\\'], $value);
+        $value = preg_replace_callback('/\\\\([0-7]{1,3})/', fn ($m) => chr(octdec($m[1])), $value) ?? $value;
 
-        return stripcslashes($value);
+        if (str_starts_with($value, "\xFE\xFF") || str_starts_with($value, "\xFF\xFE")) {
+            return mb_convert_encoding($value, 'UTF-8', 'UTF-16') ?: $value;
+        }
+
+        return $value;
+    }
+
+    private function decodePdfHex(string $hex): string
+    {
+        $hex = preg_replace('/\s+/', '', $hex) ?? '';
+        if ($hex === '') {
+            return '';
+        }
+        if (strlen($hex) % 2 === 1) {
+            $hex .= '0';
+        }
+        $raw = @hex2bin($hex);
+        if (! is_string($raw)) {
+            return '';
+        }
+        if (str_starts_with($raw, "\xFE\xFF") || str_starts_with($raw, "\xFF\xFE")) {
+            return mb_convert_encoding($raw, 'UTF-8', 'UTF-16') ?: $raw;
+        }
+
+        return $raw;
     }
 
     /**
@@ -230,10 +307,14 @@ class AccountingListParser
     {
         foreach ($grid as $i => $line) {
             $blob = PersonName::key(implode(' ', $line));
-            if (str_contains($blob, 'colaborador') && (str_contains($blob, 'admiss') || str_contains($blob, 'codigo'))) {
-                return $i;
-            }
-            if (str_contains($blob, 'nome') && str_contains($blob, 'codigo')) {
+            $hasName = str_contains($blob, 'colaborador')
+                || str_contains($blob, 'funcionario')
+                || (bool) preg_match('/\bnome\b/', $blob);
+            $hasCode = str_contains($blob, 'codigo')
+                || str_contains($blob, 'matricula')
+                || str_contains($blob, 'registro');
+            $hasAdmission = str_contains($blob, 'admiss');
+            if ($hasName && ($hasCode || $hasAdmission)) {
                 return $i;
             }
         }
@@ -251,9 +332,9 @@ class AccountingListParser
 
         foreach ($header as $i => $label) {
             $key = PersonName::key((string) $label);
-            if (str_contains($key, 'colaborador') || $key === 'nome') {
+            if (str_contains($key, 'colaborador') || str_contains($key, 'funcionario') || $key === 'nome' || str_starts_with($key, 'nome ')) {
                 $map['name'] = $i;
-            } elseif (str_contains($key, 'codigo') || $key === 'code') {
+            } elseif (str_contains($key, 'codigo') || str_contains($key, 'matricula') || str_contains($key, 'registro') || $key === 'code') {
                 $map['code'] = $i;
             } elseif (str_contains($key, 'admiss')) {
                 $map['admission'] = $i;
@@ -279,6 +360,9 @@ class AccountingListParser
 
         $rows = [];
         while (($line = fgetcsv($handle, 0, ',')) !== false) {
+            if (count($line) === 1 && str_contains((string) $line[0], ';')) {
+                $line = str_getcsv((string) $line[0], ';');
+            }
             $rows[] = array_map(fn ($cell) => (string) $cell, $line);
         }
         fclose($handle);
@@ -288,6 +372,75 @@ class AccountingListParser
 
     private function looksLikeSci(string $text): bool
     {
-        return (bool) preg_match('/\d{2}\/\d{2}\/\d{4}.+\d{6}/', $text);
+        return (bool) preg_match('/\d{2}\/\d{2}\/\d{4}.+\d{6}/', $text)
+            || (bool) preg_match('/\d{1,6}.+\d{2}\/\d{2}\/\d{4}/', $text);
+    }
+
+    /**
+     * @return list<array{code:string,name:string,admission_on:string}>
+     */
+    private function parseBlob(string $text): array
+    {
+        $blob = preg_replace('/\s+/u', ' ', $text) ?? $text;
+        $rows = [];
+        $seen = [];
+
+        $patterns = [
+            '/(\d{2}\/\d{2}\/\d{2,4})\s*(.+?)\s*(\d{6})/u',
+            '/(?<!\d)(\d{1,6})\s+([A-Za-zÀ-ÿ][^0-9]{2,}?)\s+(\d{2}\/\d{2}\/\d{2,4})/u',
+        ];
+
+        foreach ($patterns as $index => $pattern) {
+            if (! preg_match_all($pattern, $blob, $matches, PREG_SET_ORDER)) {
+                continue;
+            }
+            foreach ($matches as $match) {
+                $parsed = $index === 0
+                    ? $this->normalize(trim($match[2]), $match[3], $match[1])
+                    : $this->normalize(trim($match[2]), $match[1], $match[3]);
+                $this->pushRow($rows, $seen, $parsed);
+            }
+            if ($rows !== []) {
+                return $rows;
+            }
+        }
+
+        return $rows;
+    }
+
+    /**
+     * @param  list<array{code:string,name:string,admission_on:string}>  $rows
+     * @param  array<string, true>  $seen
+     * @param  array{code:string,name:string,admission_on:string}|null  $parsed
+     */
+    private function pushRow(array &$rows, array &$seen, ?array $parsed): void
+    {
+        if ($parsed === null) {
+            return;
+        }
+        $key = $parsed['code'].'|'.$parsed['name'];
+        if (isset($seen[$key])) {
+            return;
+        }
+        $seen[$key] = true;
+        $rows[] = $parsed;
+    }
+
+    private function cleanName(string $name): string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+        $name = preg_replace('/^\d+\s*anos?\s*(e\s+\d+\s*meses?)?\s*/iu', '', $name) ?? $name;
+        $name = preg_replace('/\b(codigo|matr[ií]cula|admiss[aã]o|colaborador|funcion[aá]rio|nome)\b/iu', ' ', $name) ?? $name;
+
+        return trim(preg_replace('/\s+/u', ' ', $name) ?? $name);
+    }
+
+    private function normalizeExtractedText(string $text): string
+    {
+        $text = str_replace(["\x00", "\x0c"], "\n", $text);
+        $text = preg_replace('/(\d{1,2})\s*[\/.\-]\s*(\d{1,2})\s*[\/.\-]\s*(\d{2,4})/', '$1/$2/$3', $text) ?? $text;
+        $text = preg_replace('/[^\S\n]+/u', ' ', $text) ?? $text;
+
+        return $text;
     }
 }
