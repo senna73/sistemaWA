@@ -386,6 +386,11 @@ it('shows hiring entry points on the recruitment board', function () {
     $owner = makeRoleUser('super_admin');
 
     $this->actingAs($owner)
+        ->get(route('work.home'))
+        ->assertOk()
+        ->assertSee('Processo de contratação');
+
+    $this->actingAs($owner)
         ->get(route('work.project', 'recruitment'))
         ->assertOk()
         ->assertSee('Contratações por etapa')

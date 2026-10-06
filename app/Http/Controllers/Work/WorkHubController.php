@@ -638,6 +638,7 @@ class WorkHubController extends Controller
             'offboarding' => $user->coordinatorWorkbench() && $stage === 'inactivity'
                 ? RhActivitySettings::INACTIVITY
                 : RhActivitySettings::OFFBOARDING,
+            'recruitment' => RhActivitySettings::RECRUITMENT,
             'finance' => RhActivitySettings::FINANCE,
             'uniforms' => RhActivitySettings::UNIFORMS,
             default => null,

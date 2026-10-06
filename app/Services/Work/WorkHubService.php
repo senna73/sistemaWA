@@ -187,6 +187,22 @@ class WorkHubService
             ];
         }
 
+        if (
+            ($user->can(AccessControl::PERMISSION_RECRUITMENT) || $user->can(AccessControl::PERMISSION_ACCOUNTING) || $user->isSuperAdmin())
+            && RhActivitySettings::visible(RhActivitySettings::RECRUITMENT, $user)
+        ) {
+            $openHires = Candidate::query()->whereIn('status', Candidate::OPEN_STATUSES)->count();
+            $projects[] = [
+                'key' => 'recruitment',
+                'title' => 'Processo de contratação',
+                'subtitle' => 'Documentos, exame, ASO, contabilidade e cadastro na loja.',
+                'badge' => $openHires.' em andamento',
+                'needs_action' => $openHires > 0,
+                'kicker' => $openHires > 0 ? 'Admissão em andamento' : 'Em dia',
+                'url' => route('work.project', 'recruitment'),
+            ];
+        }
+
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::CLIOMED, $user)) {
             $weekly = $this->clinics->weeklyState($this->clinics->ensureWeeklyCheck());
             $projects[] = [

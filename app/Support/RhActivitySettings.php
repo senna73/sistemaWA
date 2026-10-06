@@ -11,6 +11,8 @@ class RhActivitySettings
 
     public const OFFBOARDING = 'offboarding';
 
+    public const RECRUITMENT = 'recruitment';
+
     public const CLIOMED = 'cliomed';
 
     public const ACCOUNTING = 'accounting';
@@ -42,6 +44,11 @@ class RhActivitySettings
                 'flag' => 'rh_activity_offboarding_enabled',
                 'label' => 'Gestão RH Demissional',
                 'hint' => 'Quadro de desligamentos, inatividade e transferências para o RH.',
+            ],
+            self::RECRUITMENT => [
+                'flag' => 'rh_activity_recruitment_enabled',
+                'label' => 'Processo de contratação',
+                'hint' => 'Quadro admissional: documentos, exame, ASO, contabilidade e cadastro na loja.',
             ],
             self::CLIOMED => [
                 'flag' => 'rh_activity_cliomed_enabled',

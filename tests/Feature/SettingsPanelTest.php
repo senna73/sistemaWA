@@ -44,6 +44,7 @@ it('lets only a super admin open and save portal settings', function () {
         ->assertSee('Atividades do RH')
         ->assertSee('Demandas a atender')
         ->assertSee('Gestão RH Demissional')
+        ->assertSee('Processo de contratação')
         ->assertSee('Solicitar desligamento');
 
     $this->actingAs($admin)
