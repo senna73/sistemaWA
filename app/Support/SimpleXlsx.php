@@ -13,6 +13,11 @@ class SimpleXlsx
      */
     public static function rows(string $path): array
     {
+        $head = (string) @file_get_contents($path, false, null, 0, 8);
+        if (str_starts_with($head, "\xD0\xCF\x11\xE0")) {
+            throw new InvalidArgumentException('Este arquivo é Excel antigo (.xls). Abra no Excel e salve como .xlsx.');
+        }
+
         $zip = new ZipArchive();
         if ($zip->open($path) !== true) {
             throw new InvalidArgumentException('Não foi possível abrir a planilha.');
@@ -20,6 +25,14 @@ class SimpleXlsx
 
         $strings = self::sharedStrings($zip);
         $sheetXml = $zip->getFromName(self::firstSheetPath($zip));
+        if ($sheetXml === false) {
+            foreach (['xl/worksheets/sheet1.xml', 'xl/worksheets/sheet.xml'] as $fallback) {
+                $sheetXml = $zip->getFromName($fallback);
+                if ($sheetXml !== false) {
+                    break;
+                }
+            }
+        }
         $zip->close();
 
         if ($sheetXml === false) {
@@ -30,17 +43,36 @@ class SimpleXlsx
         $grid = [];
         $maxRow = 0;
         $maxCol = 0;
+        $rowCursor = 0;
 
-        foreach (self::named($sheet, 'c') as $cell) {
-            $ref = (string) $cell['r'];
-            if ($ref === '') {
-                continue;
+        foreach (self::named($sheet, 'row') as $rowEl) {
+            $rowCursor++;
+            $row = (int) ($rowEl['r'] ?? $rowCursor);
+            $colCursor = 0;
+            foreach ($rowEl->xpath('./*[local-name()="c"]') ?: [] as $cell) {
+                $ref = (string) $cell['r'];
+                if ($ref !== '') {
+                    [$colCursor, $row] = self::cellIndex($ref);
+                }
+                $value = self::cellValue($cell, $strings);
+                $grid[$row][$colCursor] = $value;
+                $maxRow = max($maxRow, $row);
+                $maxCol = max($maxCol, $colCursor);
+                $colCursor++;
             }
-            [$col, $row] = self::cellIndex($ref);
-            $value = self::cellValue($cell, $strings);
-            $grid[$row][$col] = $value;
-            $maxRow = max($maxRow, $row);
-            $maxCol = max($maxCol, $col);
+        }
+
+        if ($grid === []) {
+            foreach (self::named($sheet, 'c') as $cell) {
+                $ref = (string) $cell['r'];
+                if ($ref === '') {
+                    continue;
+                }
+                [$col, $row] = self::cellIndex($ref);
+                $grid[$row][$col] = self::cellValue($cell, $strings);
+                $maxRow = max($maxRow, $row);
+                $maxCol = max($maxCol, $col);
+            }
         }
 
         $rows = [];
@@ -91,10 +123,17 @@ class SimpleXlsx
         }
 
         foreach ($xml->Relationship as $rel) {
-            $target = (string) $rel['Target'];
-            if (str_contains($target, 'worksheets/')) {
-                return 'xl/'.ltrim($target, '/');
+            $target = str_replace('\\', '/', (string) $rel['Target']);
+            if (! str_contains($target, 'worksheets/')) {
+                continue;
             }
+            $target = preg_replace('#^(\.\./)+#', '', $target) ?? $target;
+            $target = ltrim($target, '/');
+            if (! str_starts_with($target, 'xl/')) {
+                $target = 'xl/'.$target;
+            }
+
+            return $target;
         }
 
         return 'xl/worksheets/sheet1.xml';

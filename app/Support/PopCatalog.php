@@ -298,4 +298,15 @@ class PopCatalog
     {
         return ['rh', 'coordinator', 'super_admin'];
     }
+
+    public static function canReceiveAgenda(\App\Models\User $user): bool
+    {
+        if (! $user->active) {
+            return false;
+        }
+
+        return in_array($user->role, self::agendaAssigneeRoles(), true)
+            || $user->isSuperAdmin()
+            || $user->can(self::PERMISSION_AGENDA);
+    }
 }

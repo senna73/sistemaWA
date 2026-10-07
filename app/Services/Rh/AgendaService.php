@@ -38,6 +38,15 @@ class AgendaService
             'payload' => $data['payload'] ?? null,
         ]);
 
+        if ($assignee->id !== $actor->id) {
+            app(AttendanceNotifier::class)->notify(
+                collect([$assignee]),
+                'Nova atividade na agenda',
+                $item->title.($item->due_at ? ' · '.$item->due_at->format('d/m H:i') : ''),
+                route('agenda.index'),
+            );
+        }
+
         if (in_array($item->type, ['operational_demand', 'collaborator_request'], true) && empty($data['skip_demand'])) {
             OperationalDemand::query()->create([
                 'opened_by' => $actor->id,
@@ -140,6 +149,14 @@ class AgendaService
 
     public function defaultAssignee(?User $fallback = null): ?User
     {
+        $preferredEmail = (string) config('rh.agenda_assignee_email', '');
+        if ($preferredEmail !== '') {
+            $preferred = User::query()->where('email', $preferredEmail)->where('active', true)->first();
+            if ($preferred && PopCatalog::canReceiveAgenda($preferred)) {
+                return $preferred;
+            }
+        }
+
         foreach (['rh', 'super_admin', 'coordinator'] as $role) {
             $user = User::query()->where('role', $role)->where('active', true)->orderBy('id')->first();
             if ($user) {
@@ -147,7 +164,13 @@ class AgendaService
             }
         }
 
-        if ($fallback && in_array($fallback->role, PopCatalog::agendaAssigneeRoles(), true)) {
+        $withAgenda = User::query()->where('active', true)->orderBy('id')->get()
+            ->first(fn (User $user) => PopCatalog::canReceiveAgenda($user));
+        if ($withAgenda) {
+            return $withAgenda;
+        }
+
+        if ($fallback && PopCatalog::canReceiveAgenda($fallback)) {
             return $fallback;
         }
 
@@ -156,7 +179,7 @@ class AgendaService
 
     public function assertAssignee(User $assignee): void
     {
-        if (! in_array($assignee->role, PopCatalog::agendaAssigneeRoles(), true) && ! $assignee->isSuperAdmin()) {
+        if (! PopCatalog::canReceiveAgenda($assignee)) {
             throw ValidationException::withMessages([
                 'assignee_id' => 'A atividade só pode ser atribuída para pessoa do RH ou coordenador.',
             ]);

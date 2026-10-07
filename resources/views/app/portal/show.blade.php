@@ -65,7 +65,7 @@
                     <dt class="col-sm-3">Chave PIX</dt>
                     <dd class="col-sm-9">
                         {{ $collaborator->pix_key ?: '—' }}
-                        @if ($canEditPix ?? false)
+                        @if (($canEditPix ?? false) && auth()->user()?->seesPortalRequests())
                             <div class="small mt-1">
                                 <a href="{{ route('portal.requests') }}">Solicitar troca de Pix</a>
                                 — o RH vincula a atividade ao seu cadastro e só aplica depois da conferência.

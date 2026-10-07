@@ -80,7 +80,7 @@ class SidebarMenu
                         'icon' => 'bx-send',
                         'route' => 'portal.requests',
                         'active' => ['portal.requests*'],
-                        'visible' => fn (User $actor) => $actor->seesCollaboratorPortal(),
+                        'visible' => fn (User $actor) => $actor->seesPortalRequests(),
                     ],
                 ],
             ],

@@ -14,7 +14,10 @@ class CliomedReportParser
     public function parse(string $path, ?string $originalName = null): array
     {
         $extension = strtolower(pathinfo($originalName ?: $path, PATHINFO_EXTENSION));
-        $grid = $extension === 'csv' ? $this->csv($path) : SimpleXlsx::rows($path);
+        $head = (string) @file_get_contents($path, false, null, 0, 8);
+        $grid = (str_starts_with($head, 'PK') || in_array($extension, ['xlsx', 'xls'], true))
+            ? SimpleXlsx::rows($path)
+            : $this->csv($path);
 
         $headerAt = $this->headerIndex($grid);
         if ($headerAt === null) {
@@ -50,7 +53,7 @@ class CliomedReportParser
         foreach ($grid as $i => $line) {
             foreach ($line as $cell) {
                 $key = PersonName::key((string) $cell);
-                if (str_contains($key, 'funcionario') || $key === 'nome') {
+                if (str_contains($key, 'funcionario') || str_contains($key, 'colaborador') || $key === 'nome') {
                     return $i;
                 }
             }
@@ -69,7 +72,7 @@ class CliomedReportParser
 
         foreach ($header as $i => $label) {
             $key = PersonName::key((string) $label);
-            if (str_contains($key, 'funcionario') || $key === 'nome') {
+            if (str_contains($key, 'funcionario') || str_contains($key, 'colaborador') || $key === 'nome') {
                 $map['name'] = $i;
             } elseif (str_contains($key, 'unidade') || str_contains($key, 'empresa')) {
                 $map['unit'] = $i;
@@ -106,6 +109,16 @@ class CliomedReportParser
      */
     private function csv(string $path): array
     {
+        $raw = (string) file_get_contents($path);
+        if (str_starts_with($raw, "\xFF\xFE") || str_starts_with($raw, "\xFE\xFF")) {
+            $raw = mb_convert_encoding($raw, 'UTF-8', 'UTF-16') ?: $raw;
+            $tmp = tempnam(sys_get_temp_dir(), 'cliomed-csv');
+            if ($tmp !== false) {
+                file_put_contents($tmp, $raw);
+                $path = $tmp;
+            }
+        }
+
         $handle = fopen($path, 'r');
         if ($handle === false) {
             throw new InvalidArgumentException('Não foi possível ler o CSV.');

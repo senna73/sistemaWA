@@ -119,10 +119,15 @@ class CollaboratorPortalController extends Controller
         return back()->with('status', 'Pedido de troca de Pix enviado. O RH confere e atualiza o cadastro.');
     }
 
-    public function requests(Request $request): View
+    public function requests(Request $request): View|RedirectResponse
     {
+        if ($redirect = $this->blockUnlessPortalFeature($request, 'seesPortalRequests', 'Solicitações do portal são só para colaborador. Coordenador encaminha demanda pelo menu Demandas.')) {
+            return $redirect;
+        }
+
         $context = $this->portalContext($request);
         $collaborator = $context['collaborator'];
+        $user = $request->user();
         $demands = $collaborator
             ? $collaborator->operationalDemands()->with('agendaItem')->latest('id')->paginate(20)->withQueryString()
             : null;
@@ -136,12 +141,17 @@ class CollaboratorPortalController extends Controller
                 ->distinct()
                 ->orderBy('group')
                 ->pluck('group'),
-            'canRequest' => (bool) $request->user()?->collaborator_id && $collaborator && (int) $request->user()->collaborator_id === (int) $collaborator->id,
+            'canRequest' => $user
+                && $user->seesPortalRequests()
+                && $collaborator
+                && (int) $user->collaborator_id === (int) $collaborator->id,
         ]));
     }
 
     public function storeRequest(Request $request): RedirectResponse
     {
+        abort_unless($request->user()?->seesPortalRequests(), 403);
+
         $collaborator = $this->ownCollaborator($request);
         $validated = $request->validate([
             'category' => ['required', 'in:'.implode(',', array_keys(\App\Support\PopCatalog::collaboratorRequestCategories()))],

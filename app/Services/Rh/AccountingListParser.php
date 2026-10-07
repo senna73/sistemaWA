@@ -15,13 +15,13 @@ class AccountingListParser
     public function parse(string $path, ?string $originalName = null): array
     {
         $extension = strtolower(pathinfo($originalName ?: $path, PATHINFO_EXTENSION));
-        $head = (string) @file_get_contents($path, false, null, 0, 5);
+        $head = (string) @file_get_contents($path, false, null, 0, 8);
 
         if ($extension === 'pdf' || str_starts_with($head, '%PDF')) {
             return $this->fromText($this->pdfText($path));
         }
 
-        if (in_array($extension, ['xlsx', 'xls'], true) || str_starts_with($head, 'PK')) {
+        if (in_array($extension, ['xlsx', 'xls'], true) || str_starts_with($head, 'PK') || str_starts_with($head, "\xD0\xCF\x11\xE0")) {
             return $this->fromGrid(SimpleXlsx::rows($path));
         }
 

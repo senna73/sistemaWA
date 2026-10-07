@@ -10,7 +10,7 @@ class GrantSuperAdmin extends Command
 {
     protected $signature = 'users:normalize-roles';
 
-    protected $description = 'Quem não é coordenador vira líder; Dev e Anderson viram super admin';
+    protected $description = 'Preserva RH/contabilidade/coordenação; o restante vira líder; Dev e Anderson viram super admin';
 
     public function handle(): int
     {

@@ -157,6 +157,15 @@ class User extends Authenticatable
         return $this->can(AccessControl::PERMISSION_PORTAL) && (bool) $this->collaborator_id;
     }
 
+    public function seesPortalRequests(): bool
+    {
+        if ($this->isCoordinator() && ! $this->isSuperAdmin()) {
+            return false;
+        }
+
+        return $this->seesCollaboratorPortal();
+    }
+
     public function seesPortalEarnings(): bool
     {
         return $this->seesPortalFeature(ConfigTable::PORTAL_EARNINGS);

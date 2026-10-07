@@ -37,10 +37,11 @@ class AgendaController extends Controller
             'recurrences' => PopCatalog::agendaRecurrences(),
             'statuses' => PopCatalog::agendaStatuses(),
             'assignees' => User::query()
-                ->whereIn('role', PopCatalog::agendaAssigneeRoles())
                 ->where('active', true)
                 ->orderBy('name')
-                ->get(),
+                ->get()
+                ->filter(fn (User $assignee) => PopCatalog::canReceiveAgenda($assignee))
+                ->values(),
             'collaborators' => \App\Models\Collaborator::query()->where('active', true)->orderBy('name')->limit(300)->get(['id', 'name']),
             'companies' => \App\Models\Company::query()->orderBy('name')->get(['id', 'name']),
         ]);

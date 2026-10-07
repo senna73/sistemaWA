@@ -98,60 +98,76 @@ class AccessControl
             Permission::findOrCreate($name);
         }
 
-        self::role(self::ROLE_COLLABORATOR)->syncPermissions([
-            self::PERMISSION_PORTAL,
-            self::PERMISSION_REQUEST_OWN_DISMISSAL,
-        ]);
+        foreach ([
+            self::ROLE_COLLABORATOR,
+            self::ROLE_EMPLOYEE,
+            self::ROLE_LEADER,
+            self::ROLE_SUPER_ADMIN,
+            self::ROLE_COORDINATOR,
+            self::ROLE_RH,
+            self::ROLE_ACCOUNTING,
+        ] as $roleName) {
+            self::role($roleName);
+        }
 
-        self::role(self::ROLE_EMPLOYEE)->syncPermissions([
-            self::PERMISSION_PORTAL,
-            self::PERMISSION_REQUEST_OWN_DISMISSAL,
-        ]);
-
-        self::role(self::ROLE_LEADER)->syncPermissions([]);
-
-        self::role(self::ROLE_SUPER_ADMIN)->syncPermissions([
-            self::PERMISSION_SUPER_ADMIN,
-            self::PERMISSION_RH_INBOX,
-            self::PERMISSION_WORK,
-            self::PERMISSION_DIRECTION,
-            self::PERMISSION_MANAGE_OFFBOARDING,
-            self::PERMISSION_REQUEST_OFFBOARDING,
-            self::PERMISSION_RECRUITMENT,
-            PopCatalog::PERMISSION_ACCOUNTING_LIST,
-            PopCatalog::PERMISSION_OPEN_DEMAND,
-            PopCatalog::PERMISSION_HANDLE_DEMAND,
-            PopCatalog::PERMISSION_REVIEW_DEMAND,
-            PopCatalog::PERMISSION_AGENDA,
-        ]);
-
-        self::role(self::ROLE_COORDINATOR)->syncPermissions([
-            self::PERMISSION_REQUEST_OFFBOARDING,
-            self::PERMISSION_WORK,
-            PopCatalog::PERMISSION_OPEN_DEMAND,
-            PopCatalog::PERMISSION_AGENDA,
-        ]);
-
-        self::role(self::ROLE_RH)->syncPermissions([
-            self::PERMISSION_RH_INBOX,
-            self::PERMISSION_MANAGE_OFFBOARDING,
-            self::PERMISSION_REQUEST_OFFBOARDING,
-            self::PERMISSION_WORK,
-            self::PERMISSION_RECRUITMENT,
-            'Lista de colaboradores',
-            PopCatalog::PERMISSION_ACCOUNTING_LIST,
-            PopCatalog::PERMISSION_HANDLE_DEMAND,
-            PopCatalog::PERMISSION_REVIEW_DEMAND,
-            PopCatalog::PERMISSION_AGENDA,
-        ]);
-
-        self::role(self::ROLE_ACCOUNTING)->syncPermissions([
-            self::PERMISSION_WORK,
-            self::PERMISSION_ACCOUNTING,
-            PopCatalog::PERMISSION_ACCOUNTING_LIST,
-        ]);
+        self::flattenRolePermissionsOntoUsers();
 
         self::ensureBootstrapSuperAdmin();
+    }
+
+    /**
+     * Default checkboxes when a role is assigned. Kept on the user, not on the
+     * Spatie role, so unchecking something like Agenda RH actually saves.
+     *
+     * @return list<string>
+     */
+    public static function defaultPermissionsForRole(string $role): array
+    {
+        return match ($role) {
+            'collaborator', 'employee' => [
+                self::PERMISSION_PORTAL,
+                self::PERMISSION_REQUEST_OWN_DISMISSAL,
+            ],
+            'leader' => [],
+            'super_admin' => [
+                self::PERMISSION_SUPER_ADMIN,
+                self::PERMISSION_RH_INBOX,
+                self::PERMISSION_WORK,
+                self::PERMISSION_DIRECTION,
+                self::PERMISSION_MANAGE_OFFBOARDING,
+                self::PERMISSION_REQUEST_OFFBOARDING,
+                self::PERMISSION_RECRUITMENT,
+                PopCatalog::PERMISSION_ACCOUNTING_LIST,
+                PopCatalog::PERMISSION_OPEN_DEMAND,
+                PopCatalog::PERMISSION_HANDLE_DEMAND,
+                PopCatalog::PERMISSION_REVIEW_DEMAND,
+                PopCatalog::PERMISSION_AGENDA,
+            ],
+            'coordinator' => [
+                self::PERMISSION_REQUEST_OFFBOARDING,
+                self::PERMISSION_WORK,
+                PopCatalog::PERMISSION_OPEN_DEMAND,
+                PopCatalog::PERMISSION_AGENDA,
+            ],
+            'rh' => [
+                self::PERMISSION_RH_INBOX,
+                self::PERMISSION_MANAGE_OFFBOARDING,
+                self::PERMISSION_REQUEST_OFFBOARDING,
+                self::PERMISSION_WORK,
+                self::PERMISSION_RECRUITMENT,
+                'Lista de colaboradores',
+                PopCatalog::PERMISSION_ACCOUNTING_LIST,
+                PopCatalog::PERMISSION_HANDLE_DEMAND,
+                PopCatalog::PERMISSION_REVIEW_DEMAND,
+                PopCatalog::PERMISSION_AGENDA,
+            ],
+            'accounting' => [
+                self::PERMISSION_WORK,
+                self::PERMISSION_ACCOUNTING,
+                PopCatalog::PERMISSION_ACCOUNTING_LIST,
+            ],
+            default => [],
+        };
     }
 
     public static function normalizeExistingUsers(): void
@@ -159,14 +175,15 @@ class AccessControl
         self::seed();
 
         User::query()
-            ->where('role', '!=', 'coordinator')
+            ->whereNotIn('role', ['coordinator', 'rh', 'accounting', 'super_admin'])
+            ->whereNotIn('email', ['dev@dev.com', 'rh.wamerchandising@gmail.com'])
             ->update(['role' => 'leader']);
 
         User::query()
             ->whereIn('email', ['dev@dev.com', 'rh.wamerchandising@gmail.com'])
             ->orderBy('id')
             ->each(function (User $user) {
-                self::applyToUser($user, 'super_admin', false);
+                self::applyToUser($user, 'super_admin');
             });
     }
 
@@ -208,7 +225,7 @@ class AccessControl
 
         if ($syncRolePermissions && ! in_array($role, ['admin', 'dev'], true)) {
             $keepSuperAdmin = $user->hasPermissionTo(self::PERMISSION_SUPER_ADMIN);
-            $user->syncPermissions(Role::findByName($spatie)->permissions);
+            $user->syncPermissions(self::defaultPermissionsForRole($role));
             if ($keepSuperAdmin) {
                 $user->givePermissionTo(self::PERMISSION_SUPER_ADMIN);
             }
@@ -232,5 +249,42 @@ class AccessControl
     private static function role(string $name): Role
     {
         return Role::findOrCreate($name);
+    }
+
+    /**
+     * Old seeds put defaults on the Spatie role, so the form could not revoke
+     * them. Copy once onto each user, then leave the role empty.
+     */
+    private static function flattenRolePermissionsOntoUsers(): void
+    {
+        $flattened = false;
+
+        foreach ([
+            self::ROLE_COLLABORATOR,
+            self::ROLE_EMPLOYEE,
+            self::ROLE_LEADER,
+            self::ROLE_SUPER_ADMIN,
+            self::ROLE_COORDINATOR,
+            self::ROLE_RH,
+            self::ROLE_ACCOUNTING,
+        ] as $roleName) {
+            $role = self::role($roleName);
+            $permissions = $role->permissions;
+
+            if ($permissions->isEmpty()) {
+                continue;
+            }
+
+            $role->users->each(function (User $user) use ($permissions) {
+                $user->givePermissionTo($permissions);
+            });
+
+            $role->syncPermissions([]);
+            $flattened = true;
+        }
+
+        if ($flattened) {
+            app()[PermissionRegistrar::class]->forgetCachedPermissions();
+        }
     }
 }

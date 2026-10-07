@@ -2,7 +2,9 @@
 
 use App\Models\User;
 use App\Support\AccessControl;
+use App\Support\PopCatalog;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 function usersScreenActor(bool $superAdmin = false): User
 {
@@ -53,6 +55,62 @@ it('forbids changing roles without super admin permission', function () {
         ->assertForbidden();
 
     expect($target->fresh()->role)->toBe('employee');
+});
+
+it('lets a coordinator lose Agenda RH when the checkbox is saved off', function () {
+    $actor = usersScreenActor(superAdmin: true);
+    $target = User::factory()->create([
+        'name' => 'Coord Agenda',
+        'email' => 'coord-agenda@example.com',
+        'role' => 'coordinator',
+    ]);
+    AccessControl::applyToUser($target, 'coordinator');
+
+    expect($target->fresh()->can(PopCatalog::PERMISSION_AGENDA))->toBeTrue();
+
+    $permissions = [];
+    foreach ($target->fresh()->getDirectPermissions() as $permission) {
+        if ($permission->name === PopCatalog::PERMISSION_AGENDA) {
+            continue;
+        }
+
+        $permissions[$permission->id] = 'on';
+    }
+
+    $this->actingAs($actor)
+        ->put(route('users.update', $target->id), [
+            'name' => 'Coord Agenda',
+            'email' => 'coord-agenda@example.com',
+            'role' => 'coordinator',
+            'permissions' => $permissions,
+        ])
+        ->assertCreated();
+
+    expect($target->fresh()->can(PopCatalog::PERMISSION_AGENDA))->toBeFalse();
+    expect($target->fresh()->can(AccessControl::PERMISSION_WORK))->toBeTrue();
+});
+
+it('copies role-granted permissions onto the user so they can be revoked', function () {
+    AccessControl::seed();
+
+    $role = Role::findByName(AccessControl::ROLE_COORDINATOR);
+    $role->syncPermissions([PopCatalog::PERMISSION_AGENDA, AccessControl::PERMISSION_WORK]);
+
+    $target = User::factory()->create(['role' => 'coordinator']);
+    $target->syncRoles([AccessControl::ROLE_COORDINATOR]);
+    $target->syncPermissions([]);
+
+    expect($target->fresh()->can(PopCatalog::PERMISSION_AGENDA))->toBeTrue();
+    expect($target->getDirectPermissions())->toHaveCount(0);
+
+    AccessControl::seed();
+
+    $target = $target->fresh();
+
+    expect($target->getDirectPermissions()->pluck('name')->all())
+        ->toContain(PopCatalog::PERMISSION_AGENDA)
+        ->toContain(AccessControl::PERMISSION_WORK);
+    expect($role->fresh()->permissions)->toHaveCount(0);
 });
 
 it('persists checkbox permissions when updating a user', function () {
@@ -110,7 +168,7 @@ it('turns existing users into leaders and the two emails into super admin', func
     AccessControl::normalizeExistingUsers();
 
     expect($coordinator->fresh()->role)->toBe('coordinator');
-    expect($staff->fresh()->role)->toBe('leader');
+    expect($staff->fresh()->role)->toBe('rh');
     expect($dev->fresh()->role)->toBe('super_admin');
     expect($dev->fresh()->can(AccessControl::PERMISSION_SUPER_ADMIN))->toBeTrue();
     expect($anderson->fresh()->role)->toBe('super_admin');

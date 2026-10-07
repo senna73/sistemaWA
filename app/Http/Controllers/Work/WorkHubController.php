@@ -34,6 +34,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WorkHubController extends Controller
@@ -508,14 +509,13 @@ class WorkHubController extends Controller
         $check = CliomedWeeklyCheck::query()->findOrFail($validated['check_id']);
 
         if ($request->hasFile('attachment')) {
-            $extension = strtolower((string) $request->file('attachment')->getClientOriginalExtension());
-            if (! in_array($extension, ['xlsx', 'csv'], true)) {
+            try {
+                $result = $clinics->ingestReport($check, $request->file('attachment'), app(CliomedReportParser::class), app(CliomedReconciler::class));
+            } catch (InvalidArgumentException $e) {
                 throw ValidationException::withMessages([
-                    'attachment' => 'Envie o relatório da Cliomed em .xlsx (ou .csv).',
+                    'attachment' => $e->getMessage(),
                 ]);
             }
-
-            $result = $clinics->ingestReport($check, $request->file('attachment'), app(CliomedReportParser::class), app(CliomedReconciler::class));
             $check = $check->fresh();
             $status = (($result['inconsistency_count'] ?? 0) === 0)
                 ? 'Relatório da Cliomed bateu com o sistema. Finalize a conferência para deixar a semana em dia.'

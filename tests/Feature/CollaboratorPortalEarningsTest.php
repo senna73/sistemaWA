@@ -304,3 +304,31 @@ it('can release earnings without releasing daily rates', function () {
         ->get(route('portal.daily-rates'))
         ->assertRedirect(route('portal.show'));
 });
+
+it('does not let a coordinator open or send portal requests', function () {
+    AccessControl::seed();
+    $collaborator = Collaborator::factory()->create();
+    $user = User::factory()->create(['role' => 'coordinator', 'collaborator_id' => $collaborator->id]);
+    AccessControl::applyToUser($user, 'coordinator');
+    $user->collaborator_id = $collaborator->id;
+    $user->givePermissionTo(AccessControl::PERMISSION_PORTAL);
+    $user->save();
+
+    $actor = $user->fresh();
+
+    $this->actingAs($actor)
+        ->get(route('portal.requests'))
+        ->assertRedirect(route('portal.show'));
+
+    $this->actingAs($actor)
+        ->post(route('portal.requests.store'), [
+            'category' => 'declaracao',
+            'request_text' => 'Pedido que o coordenador não deve abrir pelo portal',
+        ])
+        ->assertForbidden();
+
+    $this->actingAs($actor)
+        ->get(route('portal.show'))
+        ->assertOk()
+        ->assertDontSee('Solicitar troca de Pix');
+});

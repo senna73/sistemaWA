@@ -21,8 +21,8 @@
             @csrf
             <input type="hidden" name="check_id" value="{{ $weekly->id }}">
             <div class="mb-3">
-                <label class="form-label">Relatório Cliomed (.xlsx)</label>
-                <input type="file" name="attachment" class="form-control" accept=".xlsx,.csv" required>
+                <label class="form-label">Relatório Cliomed (.xlsx ou .csv)</label>
+                <input type="file" name="attachment" class="form-control" accept=".xlsx,.csv,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
             </div>
             <button class="btn btn-primary" type="submit">Comparar com o sistema</button>
         </form>

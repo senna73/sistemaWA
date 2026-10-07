@@ -50,6 +50,19 @@ it('hides admin sidebar links the coordinator cannot open', function () {
         ->assertDontSee('Acompanhamento RH');
 });
 
+it('hides portal requests from a coordinator even with cadastro vinculado', function () {
+    $user = sidebarUser('coordinator');
+    $user->collaborator_id = Collaborator::factory()->create()->id;
+    $user->givePermissionTo(AccessControl::PERMISSION_PORTAL);
+    $user->save();
+
+    $this->actingAs($user->fresh())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertDontSee('Solicitações')
+        ->assertDontSee('Solicitações do colaborador');
+});
+
 it('shows only portal links for a collaborator', function () {
     $user = sidebarUser('collaborator');
     $user->collaborator_id = Collaborator::factory()->create()->id;

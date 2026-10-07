@@ -1,5 +1,6 @@
 <x-app-layout>
     <div class="container-fluid">
+        @include('work.partials.notifications')
         @if (session('status'))
             <div class="alert alert-success">{{ session('status') }}</div>
         @endif
