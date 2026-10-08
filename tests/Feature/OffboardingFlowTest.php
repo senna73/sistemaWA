@@ -338,7 +338,15 @@ it('reconciles the cliomed report against collaborators by name', function () {
 
     $service = app(ClinicPanelService::class);
     foreach ($service->pendingInconsistencies($check->fresh()) as $item) {
-        $service->resolveInconsistency($check->fresh(), $item['_key']);
+        $action = match ($item['_bucket'] ?? '') {
+            'only_report' => 'report_only',
+            'only_system' => 'deactivate',
+            'wrong_clinic' => 'set_cliomed',
+            'inactive_in_report' => 'acknowledge',
+            'ambiguous' => 'no_match',
+            default => 'acknowledge',
+        };
+        $service->resolveInconsistency($check->fresh(), $item['_key'], $action);
     }
 
     $this->actingAs($rh)

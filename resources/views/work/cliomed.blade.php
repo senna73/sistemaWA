@@ -16,6 +16,7 @@
                 <div class="d-flex align-items-center gap-2">
                     <span class="badge {{ $state['needs_action'] ? 'bg-label-warning' : 'bg-label-secondary' }}">{{ $state['badge'] }}</span>
                     @can('Gerir desligamentos')
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.cliomed.unregistered') }}">PDF não cadastrados</a>
                         <a class="btn btn-sm btn-outline-danger" href="{{ route('work.cliomed.charge') }}">PDF cobrança de inativos</a>
                     @endcan
                     <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.home') }}">RH Controle</a>

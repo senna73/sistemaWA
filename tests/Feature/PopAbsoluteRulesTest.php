@@ -280,11 +280,17 @@ it('applies cliomed clinic rules and builds a names-only charging pdf', function
 
     $service = app(ClinicPanelService::class);
     foreach ($service->pendingInconsistencies($check->fresh()) as $item) {
-        $service->resolveInconsistency($check->fresh(), $item['_key']);
+        $action = match ($item['_bucket'] ?? '') {
+            'only_system' => 'deactivate',
+            'wrong_clinic' => 'set_cliomed',
+            'inactive_in_report' => 'acknowledge',
+            default => 'report_only',
+        };
+        $service->resolveInconsistency($check->fresh(), $item['_key'], $action);
     }
 
     expect($wrong->fresh()->clinicSlug())->toBe(OffboardingProcess::CLINIC_CLIOMED);
-    expect($onlyWa->fresh()->clinicSlug())->toBe(OffboardingProcess::CLINIC_CONSERTA);
+    expect($onlyWa->fresh()->active)->toBeFalse();
 
     $this->actingAs($rh)
         ->get(route('work.cliomed.charge'))

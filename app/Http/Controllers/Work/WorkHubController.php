@@ -97,10 +97,19 @@ class WorkHubController extends Controller
         RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, $request->user());
         $weekly = $clinics->hydrateOkPeople($clinics->ensureWeeklyCheck());
 
+        $lookupKey = $request->string('lookup_key')->toString();
+        $lookupTerm = $request->string('lookup')->toString();
+
         return view('work.cliomed', [
             'weekly' => $weekly,
             'state' => $clinics->weeklyState($weekly),
             'groups' => $clinics->inconsistencyGroups($weekly),
+            'openKey' => $request->string('open')->toString(),
+            'lookupKey' => $lookupKey,
+            'lookupTerm' => $lookupTerm,
+            'lookupPeople' => ($lookupKey !== '' && $lookupTerm !== '')
+                ? $clinics->lookupCollaborators($lookupTerm)
+                : collect(),
         ]);
     }
 
@@ -110,14 +119,45 @@ class WorkHubController extends Controller
         $validated = $request->validate([
             'check_id' => ['required', 'exists:cliomed_weekly_checks,id'],
             'key' => ['required', 'string', 'max:255'],
+            'action' => ['required', 'string', 'max:40'],
+            'name' => ['nullable', 'string', 'max:255'],
+            'collaborator_id' => ['nullable', 'integer', 'exists:collaborators,id'],
         ]);
         $check = CliomedWeeklyCheck::query()->findOrFail($validated['check_id']);
-        $clinics->resolveInconsistency($check, $validated['key']);
+        if (! $check->isOpen()) {
+            throw ValidationException::withMessages(['action' => 'Esta conferência já foi finalizada.']);
+        }
+
+        try {
+            $clinics->resolveInconsistency($check, $validated['key'], $validated['action'], [
+                'name' => $validated['name'] ?? null,
+                'collaborator_id' => $validated['collaborator_id'] ?? null,
+            ]);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['action' => $e->getMessage()]);
+        }
 
         return redirect()->route('work.cliomed', array_filter([
             'bucket' => $request->string('bucket')->toString() ?: null,
             'q' => $request->string('q')->toString() ?: null,
-        ]))->with('status', 'Regra da clínica aplicada.');
+        ]))->with('status', $this->cliomedActionStatus($validated['action']));
+    }
+
+    public function discardCliomed(Request $request, ClinicPanelService $clinics): RedirectResponse
+    {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, $request->user());
+        $validated = $request->validate([
+            'check_id' => ['required', 'exists:cliomed_weekly_checks,id'],
+        ]);
+        $check = CliomedWeeklyCheck::query()->findOrFail($validated['check_id']);
+
+        try {
+            $clinics->discardWeeklyReport($check);
+        } catch (InvalidArgumentException $e) {
+            throw ValidationException::withMessages(['check_id' => $e->getMessage()]);
+        }
+
+        return redirect()->route('work.cliomed')->with('status', 'Conferência da semana descartada. Envie o relatório atualizado.');
     }
 
     public function offboarding(Request $request, ClinicPanelService $clinics): View
@@ -189,6 +229,36 @@ class WorkHubController extends Controller
         $dompdf->render();
 
         return $dompdf->stream('Relatorio de Cobranca - Remocao de Inativos da Clinica.pdf', ['Attachment' => false]);
+    }
+
+    public function cliomedUnregisteredPdf(ClinicPanelService $clinics)
+    {
+        RhActivitySettings::abortUnlessVisible(RhActivitySettings::CLIOMED, request()->user());
+        $weekly = $clinics->ensureWeeklyCheck();
+        $names = $clinics->unregisteredNames($weekly);
+        $html = view('work.cliomed-unregistered-pdf', ['names' => $names])->render();
+        $dompdf = new \Dompdf\Dompdf();
+        $dompdf->loadHtml($html);
+        $dompdf->setPaper('A4', 'portrait');
+        $dompdf->render();
+
+        return $dompdf->stream('Relatorio Cliomed - Nao cadastrados na WA.pdf', ['Attachment' => false]);
+    }
+
+    private function cliomedActionStatus(string $action): string
+    {
+        return match ($action) {
+            'create_in_wa' => 'Cadastro criado na WA. Pendência tratada.',
+            'report_only' => 'Nome registrado no relatório de não cadastrados. Pendência tratada.',
+            'deactivate' => 'Colaborador apagado da lista ativa. Pendência tratada.',
+            'set_cliomed' => 'Clínica atualizada para Cliomed. Pendência tratada.',
+            'leave_clinic' => 'Clínica conferida e mantida. Pendência tratada.',
+            'acknowledge' => 'Pendência conferida.',
+            'reactivate' => 'Colaborador reativado na WA. Pendência tratada.',
+            'link' => 'Nome da Cliomed vinculado ao colaborador da WA.',
+            'no_match' => 'Nenhum colaborador correspondente. Pendência tratada.',
+            default => 'Pendência tratada.',
+        };
     }
 
     public function attachment(Request $request, OffboardingProcess $process, ProcessAttachment $attachment): StreamedResponse
@@ -509,6 +579,11 @@ class WorkHubController extends Controller
         $check = CliomedWeeklyCheck::query()->findOrFail($validated['check_id']);
 
         if ($request->hasFile('attachment')) {
+            if ($clinics->hasUploadedReport($check)) {
+                throw ValidationException::withMessages([
+                    'attachment' => 'Descarte a conferência desta semana antes de enviar um relatório novo.',
+                ]);
+            }
             try {
                 $result = $clinics->ingestReport($check, $request->file('attachment'), app(CliomedReportParser::class), app(CliomedReconciler::class));
             } catch (InvalidArgumentException $e) {

@@ -11,8 +11,10 @@ use App\Models\OffboardingProcess;
 use App\Models\RhTask;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use InvalidArgumentException;
 
 class ClinicPanelService
 {
@@ -156,6 +158,32 @@ class ClinicPanelService
         return $result;
     }
 
+    public function hasUploadedReport(CliomedWeeklyCheck $check): bool
+    {
+        return $check->report_count !== null || ! empty($check->reconciliation);
+    }
+
+    public function discardWeeklyReport(CliomedWeeklyCheck $check): CliomedWeeklyCheck
+    {
+        if (! $check->isOpen()) {
+            throw new InvalidArgumentException('Só dá para descartar uma conferência ainda aberta.');
+        }
+
+        if ($check->attachment_path) {
+            Storage::disk('local')->delete($check->attachment_path);
+        }
+
+        $check->update([
+            'wa_count' => $this->countClinic('cliomed'),
+            'report_count' => null,
+            'reconciliation' => null,
+            'attachment_path' => null,
+            'notes' => null,
+        ]);
+
+        return $check->fresh();
+    }
+
     public function hydrateOkPeople(CliomedWeeklyCheck $check): CliomedWeeklyCheck
     {
         $recon = $check->reconciliation ?? [];
@@ -259,6 +287,7 @@ class ClinicPanelService
                     continue;
                 }
                 $item['_key'] = $key;
+                $item['_bucket'] = $bucket;
                 $items[] = $item;
             }
             if ($items !== []) {
@@ -289,7 +318,10 @@ class ClinicPanelService
         return $items;
     }
 
-    public function resolveInconsistency(CliomedWeeklyCheck $check, string $key): CliomedWeeklyCheck
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public function resolveInconsistency(CliomedWeeklyCheck $check, string $key, string $action, array $payload = []): CliomedWeeklyCheck
     {
         $found = null;
         $bucket = null;
@@ -307,9 +339,16 @@ class ClinicPanelService
             return $check;
         }
 
-        $this->applyClinicRule($bucket, $found);
+        $this->applyManualAction($bucket, $action, $found, $payload);
 
         $recon = $check->reconciliation ?? [];
+        if ($action === 'link') {
+            $this->markCollaboratorMatched(
+                $recon,
+                (int) ($payload['collaborator_id'] ?? 0),
+                trim((string) ($payload['name'] ?? $found['name'] ?? ''))
+            );
+        }
         $resolved = $recon['resolved'] ?? [];
         $resolved[] = $key;
         $recon['resolved'] = array_values(array_unique($resolved));
@@ -319,32 +358,191 @@ class ClinicPanelService
     }
 
     /**
+     * @return list<string>
+     */
+    public function allowedActions(string $bucket): array
+    {
+        return match ($bucket) {
+            'only_report' => ['create_in_wa', 'report_only'],
+            'only_system' => ['deactivate'],
+            'wrong_clinic' => ['set_cliomed', 'leave_clinic'],
+            'inactive_in_report' => ['acknowledge', 'reactivate'],
+            'ambiguous' => ['link', 'no_match', 'create_in_wa'],
+            default => [],
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     * @param  array<string, mixed>  $payload
+     */
+    public function applyManualAction(string $bucket, string $action, array $item, array $payload = []): void
+    {
+        if (! in_array($action, $this->allowedActions($bucket), true)) {
+            throw new InvalidArgumentException('Esta ação não vale para este tipo de pendência.');
+        }
+
+        $name = trim((string) ($payload['name'] ?? $item['name'] ?? $item['report_name'] ?? ''));
+
+        match ($action) {
+            'create_in_wa' => $this->createFromReport($item, $name),
+            'deactivate' => $this->deactivateFromCheck($item, $name),
+            'set_cliomed' => $this->setClinicFromCheck($item, OffboardingProcess::CLINIC_CLIOMED, $name),
+            'reactivate' => $this->setActiveFromCheck($item, true, $name),
+            'link' => $this->linkFromCheck((int) ($payload['collaborator_id'] ?? 0), $name),
+            'leave_clinic', 'report_only', 'acknowledge', 'no_match' => $this->maybeRename($item, $name),
+            default => throw new InvalidArgumentException('Ação desconhecida.'),
+        };
+    }
+
+    /**
      * @param  array<string, mixed>  $item
      */
-    public function applyClinicRule(string $bucket, array $item): void
+    private function createFromReport(array $item, string $name): void
     {
-        if ($bucket === 'inactive_in_report' || $bucket === 'ambiguous') {
-            return;
+        if ($name === '') {
+            throw new InvalidArgumentException('Informe o nome para criar o cadastro na WA.');
         }
 
-        $collaboratorId = $item['id'] ?? null;
-        if (! $collaboratorId) {
-            return;
-        }
-
-        $clinic = match ($bucket) {
-            'only_system' => $this->clinicBySlug(OffboardingProcess::CLINIC_CONSERTA),
-            'only_report', 'wrong_clinic' => $this->clinicBySlug(OffboardingProcess::CLINIC_CLIOMED),
-            default => null,
-        };
-
-        if (! $clinic) {
-            return;
-        }
-
-        Collaborator::query()->whereKey($collaboratorId)->update([
-            'examined_medical_clinic_id' => $clinic->id,
+        $clinic = $this->clinicBySlug(OffboardingProcess::CLINIC_CLIOMED);
+        $bits = array_filter([
+            $item['unit'] ?? null,
+            $item['sector'] ?? null,
+            $item['role'] ?? null,
         ]);
+
+        Collaborator::query()->create([
+            'name' => $name,
+            'job_title' => $item['role'] ?? null,
+            'examined_medical_clinic_id' => $clinic->id,
+            'active' => true,
+            'observation' => $bits === [] ? 'Criado na conferência Cliomed.' : 'Criado na conferência Cliomed. '.implode(' · ', $bits),
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function deactivateFromCheck(array $item, string $name): void
+    {
+        $collaborator = $this->collaboratorFromItem($item);
+        $this->maybeRenameCollaborator($collaborator, $name);
+        $collaborator->active = false;
+        $collaborator->save();
+        $collaborator->user?->deactivate();
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function setClinicFromCheck(array $item, string $slug, string $name): void
+    {
+        $collaborator = $this->collaboratorFromItem($item);
+        $this->maybeRenameCollaborator($collaborator, $name);
+        $collaborator->examined_medical_clinic_id = $this->clinicBySlug($slug)->id;
+        $collaborator->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function setActiveFromCheck(array $item, bool $active, string $name): void
+    {
+        $collaborator = $this->collaboratorFromItem($item);
+        $this->maybeRenameCollaborator($collaborator, $name);
+        $collaborator->active = $active;
+        $collaborator->save();
+    }
+
+    private function linkFromCheck(int $collaboratorId, string $name): void
+    {
+        if ($collaboratorId < 1) {
+            throw new InvalidArgumentException('Escolha o colaborador da WA para vincular.');
+        }
+
+        $collaborator = Collaborator::query()->with('user')->findOrFail($collaboratorId);
+        $this->maybeRenameCollaborator($collaborator, $name);
+        $collaborator->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $recon
+     */
+    private function markCollaboratorMatched(array &$recon, int $id, string $name): void
+    {
+        if ($id < 1) {
+            return;
+        }
+
+        foreach (['only_system', 'wrong_clinic', 'inactive_in_report'] as $bucket) {
+            $recon[$bucket] = array_values(array_filter(
+                $recon[$bucket] ?? [],
+                fn (array $item) => (int) ($item['id'] ?? 0) !== $id
+            ));
+        }
+
+        $okPeople = $recon['ok_people'] ?? [];
+        $already = collect($okPeople)->contains(fn (array $row) => (int) ($row['id'] ?? 0) === $id);
+        if (! $already) {
+            $okPeople[] = [
+                'id' => $id,
+                'name' => $name !== '' ? $name : (string) $id,
+                'report_name' => $name,
+            ];
+        }
+        $recon['ok_people'] = $okPeople;
+        $recon['ok'] = count($okPeople);
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function maybeRename(array $item, string $name): void
+    {
+        if (! isset($item['id']) || $name === '') {
+            return;
+        }
+
+        $this->maybeRenameCollaborator($this->collaboratorFromItem($item), $name);
+    }
+
+    private function maybeRenameCollaborator(Collaborator $collaborator, string $name): void
+    {
+        if ($name !== '' && $name !== $collaborator->name) {
+            $collaborator->name = $name;
+            $collaborator->save();
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    private function collaboratorFromItem(array $item): Collaborator
+    {
+        $id = (int) ($item['id'] ?? 0);
+        if ($id < 1) {
+            throw new InvalidArgumentException('Esta pendência não aponta para um colaborador da WA.');
+        }
+
+        return Collaborator::query()->with('user')->findOrFail($id);
+    }
+
+    /**
+     * @return Collection<int, Collaborator>
+     */
+    public function lookupCollaborators(string $term): Collection
+    {
+        $term = trim($term);
+        if (mb_strlen($term) < 2) {
+            return collect();
+        }
+
+        return Collaborator::query()
+            ->with('medicalClinic')
+            ->search($term)
+            ->orderBy('name')
+            ->limit(20)
+            ->get();
     }
 
     public function clinicBySlug(string $slug): MedicalClinic
@@ -366,8 +564,24 @@ class ClinicPanelService
      */
     public function chargingNames(CliomedWeeklyCheck $check): array
     {
+        return $this->namesFromBucket($check, 'inactive_in_report');
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function unregisteredNames(CliomedWeeklyCheck $check): array
+    {
+        return $this->namesFromBucket($check, 'only_report');
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function namesFromBucket(CliomedWeeklyCheck $check, string $bucket): array
+    {
         $names = [];
-        foreach (($check->reconciliation['inactive_in_report'] ?? []) as $item) {
+        foreach (($check->reconciliation[$bucket] ?? []) as $item) {
             $name = trim((string) ($item['name'] ?? $item['report_name'] ?? ''));
             if ($name !== '') {
                 $names[] = $name;

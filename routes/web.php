@@ -75,7 +75,9 @@ Route::get('/dashboard', function () {
         Route::get('/demo/{board}/{card}', [WorkHubController::class, 'demoCard'])->name('work.demo.card')->where('board', 'contratacoes|demissoes');
         Route::get('/cliomed', [WorkHubController::class, 'cliomed'])->name('work.cliomed')->middleware('permission:Gerir desligamentos');
         Route::get('/cliomed/cobranca.pdf', [WorkHubController::class, 'cliomedChargePdf'])->name('work.cliomed.charge')->middleware('permission:Gerir desligamentos');
+        Route::get('/cliomed/nao-cadastrados.pdf', [WorkHubController::class, 'cliomedUnregisteredPdf'])->name('work.cliomed.unregistered')->middleware('permission:Gerir desligamentos');
         Route::post('/cliomed/inconsistencias', [WorkHubController::class, 'resolveCliomed'])->name('work.cliomed.resolve')->middleware('permission:Gerir desligamentos');
+        Route::post('/cliomed/descartar', [WorkHubController::class, 'discardCliomed'])->name('work.cliomed.discard')->middleware('permission:Gerir desligamentos');
         Route::get('/contabilidade', [AccountingListController::class, 'show'])->name('work.accounting')->middleware('permission:Conferência contabilidade');
         Route::post('/contabilidade', [AccountingListController::class, 'store'])->name('work.accounting.store')->middleware('permission:Conferência contabilidade');
         Route::post('/contabilidade/{row}', [AccountingListController::class, 'apply'])->name('work.accounting.apply')->middleware('permission:Conferência contabilidade');

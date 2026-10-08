@@ -1,5 +1,10 @@
 @php
     $recon = $weekly->reconciliation ?? [];
+    $openKey = $openKey ?? '';
+    $lookupKey = $lookupKey ?? '';
+    $lookupTerm = $lookupTerm ?? '';
+    $lookupPeople = $lookupPeople ?? collect();
+    $hasReport = ($weekly->report_count !== null) || $recon !== [];
 @endphp
 
 <p class="text-muted">
@@ -12,11 +17,12 @@
 </p>
 <p class="small text-muted">
     Toda semana a conferência fica amarela. Envie a planilha da Cliomed (Nome Unidade, Nome Setor, Nome Cargo, Nome Funcionário).
-    As inconsistências ficam aqui para resolver. O card só fica cinza depois que tudo estiver tratado e a conferência for finalizada.
+    Cada pendência abre um card com a correção daquela situação. O card só fica cinza depois que tudo estiver tratado e a conferência for finalizada.
+    Para subir um relatório novo, descarte esta conferência — as pendências atuais saem da tela.
 </p>
 
 @can('Gerir desligamentos')
-    @if ($weekly->isOpen())
+    @if ($weekly->isOpen() && ! $hasReport)
         <form method="POST" action="{{ route('work.clinic.weekly') }}" enctype="multipart/form-data" class="mb-3">
             @csrf
             <input type="hidden" name="check_id" value="{{ $weekly->id }}">
@@ -25,6 +31,13 @@
                 <input type="file" name="attachment" class="form-control" accept=".xlsx,.csv,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" required>
             </div>
             <button class="btn btn-primary" type="submit">Comparar com o sistema</button>
+        </form>
+    @elseif ($weekly->isOpen() && $hasReport)
+        <form method="POST" action="{{ route('work.cliomed.discard') }}" class="mb-3" onsubmit="return confirm('Descartar o relatório e todas as pendências desta semana? Você poderá enviar a planilha atualizada em seguida.');">
+            @csrf
+            <input type="hidden" name="check_id" value="{{ $weekly->id }}">
+            <p class="small text-muted mb-2">Já existe um relatório nesta semana. Descarte-o para enviar outro com as pendências atualizadas. Alterações já feitas nos cadastros (criar, apagar, clínica) permanecem.</p>
+            <button class="btn btn-outline-danger" type="submit">Descartar conferência da semana</button>
         </form>
     @endif
 @endcan
@@ -65,8 +78,9 @@
         .cliomed-chip.is-active { box-shadow: 0 0 0 2px currentColor; }
         .cliomed-chip.is-warning.is-active { color: #b76e00; }
         .cliomed-chip.is-success.is-active { color: #3d8c12; }
-        tr.cliomed-person-warning > td { background: #fff8e6; }
         tr.cliomed-person-ok > td { background: #eefbe3; }
+        .cliomed-person-warning .accordion-button { background: #fff8e6; }
+        .cliomed-person-warning .accordion-button:not(.collapsed) { background: #fff1cc; color: inherit; }
     </style>
 
     <div id="cliomed-board">
@@ -133,55 +147,63 @@
 
     @forelse ($groups as $group)
         <div class="mb-3" data-cliomed-section="{{ $group['bucket'] }}">
-            <h6 class="mb-1">{{ $group['title'] }} ({{ count($group['items']) }})</h6>
-            <p class="small text-muted mb-2">{{ $group['hint'] }}</p>
-            <div class="table-responsive">
-                <table class="table table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Nome</th>
-                            <th>Detalhe</th>
-                            @if ($weekly->isOpen())
-                                <th></th>
-                            @endif
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($group['items'] as $item)
-                            @php
-                                $personName = $item['name'] ?? $item['report_name'] ?? '';
-                                $personSearch = mb_strtolower(trim($personName.' '.collect($item['candidates'] ?? [])->pluck('name')->join(' ')));
-                            @endphp
-                            <tr class="cliomed-person-warning" data-cliomed-person="{{ $personSearch }}">
-                                <td>{{ $personName !== '' ? $personName : '—' }}</td>
-                                <td class="text-muted">
-                                    @if ($group['bucket'] === 'only_report')
-                                        {{ $item['sector'] ?? '' }} {{ ! empty($item['role']) ? '· '.$item['role'] : '' }}
-                                    @elseif ($group['bucket'] === 'ambiguous')
-                                        {{ collect($item['candidates'] ?? [])->pluck('name')->join(', ') }}
-                                    @else
-                                        {{ $item['clinic'] ?? '' }} {{ isset($item['active']) && ! $item['active'] ? '· inativo' : '' }}
-                                        {{ ! empty($item['report_name']) && ($item['report_name'] ?? '') !== ($item['name'] ?? '') ? '· relatório: '.$item['report_name'] : '' }}
+            <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+                <div>
+                    <h6 class="mb-1">{{ $group['title'] }} ({{ count($group['items']) }})</h6>
+                    <p class="small text-muted mb-0">{{ $group['hint'] }} Abra cada pessoa para tratar no cadastro. Nada é aplicado em lote.</p>
+                </div>
+                @if ($weekly->isOpen() && $group['bucket'] === 'only_report')
+                    <a class="btn btn-sm btn-outline-secondary" href="{{ route('work.cliomed.unregistered') }}">PDF dos não cadastrados</a>
+                @endif
+                @if ($weekly->isOpen() && $group['bucket'] === 'inactive_in_report')
+                    <a class="btn btn-sm btn-outline-danger" href="{{ route('work.cliomed.charge') }}">PDF cobrança de inativos</a>
+                @endif
+            </div>
+            <div class="accordion" id="cliomed-acc-{{ $group['bucket'] }}">
+                @foreach ($group['items'] as $item)
+                    @php
+                        $personName = $item['name'] ?? $item['report_name'] ?? '';
+                        $personSearch = mb_strtolower(trim($personName.' '.collect($item['candidates'] ?? [])->pluck('name')->join(' ')));
+                        $itemId = 'cliomed-'.md5($item['_key']);
+                        $isOpen = $openKey === $item['_key'];
+                        $detail = match ($group['bucket']) {
+                            'only_report' => trim(($item['unit'] ?? '').' '.($item['sector'] ?? '').(! empty($item['role']) ? ' · '.$item['role'] : '')),
+                            'ambiguous' => 'Candidatos: '.collect($item['candidates'] ?? [])->pluck('name')->join(', '),
+                            default => trim(($item['clinic'] ?? '').(isset($item['active']) && ! $item['active'] ? ' · inativo' : '').(! empty($item['report_name']) && ($item['report_name'] ?? '') !== ($item['name'] ?? '') ? ' · relatório: '.$item['report_name'] : '')),
+                        };
+                    @endphp
+                    <div class="accordion-item cliomed-person-warning" data-cliomed-person="{{ $personSearch }}">
+                        <h2 class="accordion-header" id="heading-{{ $itemId }}">
+                            <button class="accordion-button {{ $isOpen ? '' : 'collapsed' }}" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $itemId }}" aria-expanded="{{ $isOpen ? 'true' : 'false' }}" aria-controls="{{ $itemId }}">
+                                <span>
+                                    <strong>{{ $personName !== '' ? $personName : '—' }}</strong>
+                                    @if ($detail !== '')
+                                        <span class="text-muted small d-block">{{ $detail }}</span>
                                     @endif
-                                </td>
+                                </span>
+                            </button>
+                        </h2>
+                        <div id="{{ $itemId }}" class="accordion-collapse collapse {{ $isOpen ? 'show' : '' }}" aria-labelledby="heading-{{ $itemId }}" data-bs-parent="#cliomed-acc-{{ $group['bucket'] }}">
+                            <div class="accordion-body">
                                 @if ($weekly->isOpen())
-                                    <td class="text-end">
-                                        @can('Gerir desligamentos')
-                                            <form method="POST" action="{{ route('work.cliomed.resolve') }}">
-                                                @csrf
-                                                <input type="hidden" name="check_id" value="{{ $weekly->id }}">
-                                                <input type="hidden" name="key" value="{{ $item['_key'] }}">
-                                                <input type="hidden" name="bucket" value="" class="js-cliomed-bucket">
-                                                <input type="hidden" name="q" value="" class="js-cliomed-q">
-                                                <button class="btn btn-sm btn-outline-warning" type="submit">{{ in_array($group['bucket'], ['only_system', 'wrong_clinic'], true) ? 'Aplicar regra' : 'Resolvida' }}</button>
-                                            </form>
-                                        @endcan
-                                    </td>
+                                    @can('Gerir desligamentos')
+                                        @include('work.partials.cliomed-item-actions', [
+                                            'weekly' => $weekly,
+                                            'group' => $group,
+                                            'item' => $item,
+                                            'personName' => $personName,
+                                            'lookupKey' => $lookupKey,
+                                            'lookupTerm' => $lookupTerm,
+                                            'lookupPeople' => $lookupPeople,
+                                        ])
+                                    @else
+                                        <p class="small text-muted mb-0">Sem permissão para tratar esta pendência.</p>
+                                    @endcan
                                 @endif
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
             </div>
         </div>
     @empty
@@ -228,7 +250,6 @@
                         if (show) rowsOn += 1;
                     });
 
-                    const bareNote = section.querySelector('p');
                     const hasRows = section.querySelector('[data-cliomed-person]');
                     section.hidden = !sectionOn || (hasRows && rowsOn === 0);
                     if (!hasRows && sectionOn) {
@@ -236,7 +257,6 @@
                     }
                     visible += rowsOn;
                     if (!hasRows && sectionOn && q === '') visible += 1;
-                    if (bareNote && !hasRows) bareNote.hidden = false;
                 });
 
                 if (empty) empty.hidden = visible !== 0;
