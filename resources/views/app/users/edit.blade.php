@@ -36,6 +36,23 @@
                             <input type="text" class="form-control" value="{{ $roles[$currentRole] ?? ($user?->roleLabel() ?? 'Equipe') }}" disabled />
                         </div>
                     @endif
+                    @if ($canManageRoles)
+                        <div class="mb-3">
+                            <label class="form-label" for="work_function">Setor da agenda</label>
+                            <select class="form-control" id="work_function" name="work_function">
+                                <option value="">Sem setor</option>
+                                @foreach ($workFunctions as $value => $label)
+                                    <option value="{{ $value }}" @selected(($user?->work_function ?? '') === $value)>{{ $label }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Quem tem setor vê as atividades da fila daquele setor. O diretor configura as agendas.</div>
+                        </div>
+                    @elseif ($user?->workFunctionLabel())
+                        <div class="mb-3">
+                            <label class="form-label">Setor da agenda</label>
+                            <input type="text" class="form-control" value="{{ $user->workFunctionLabel() }}" disabled />
+                        </div>
+                    @endif
                     <div class="mb-3">
                         <label class="form-label" for="collaborator_id">Colaborador</label>
                         <select class="form-control" id="collaborator_id" name="collaborator_id" >

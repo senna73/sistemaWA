@@ -144,10 +144,15 @@ Route::get('/dashboard', function () {
         Route::get('/{demand}/anexos/{attachment}', [OperationalDemandController::class, 'attachment'])->name('demands.attachment');
     });
 
-    Route::middleware('permission:Agenda RH|Super admin')->prefix('agenda')->group(function () {
+    Route::middleware('agenda.access')->prefix('agenda')->group(function () {
         Route::get('/', [AgendaController::class, 'index'])->name('agenda.index');
+        Route::get('/produtividade', [AgendaController::class, 'board'])->name('agenda.board');
         Route::post('/', [AgendaController::class, 'store'])->name('agenda.store');
+        Route::post('/schedules', [AgendaController::class, 'storeSchedule'])->name('agenda.schedules.store')->middleware('permission:Super admin');
+        Route::put('/schedules/{schedule}', [AgendaController::class, 'updateSchedule'])->name('agenda.schedules.update')->middleware('permission:Super admin');
         Route::post('/{item}/status', [AgendaController::class, 'status'])->name('agenda.status');
+        Route::post('/{item}/assign', [AgendaController::class, 'assign'])->name('agenda.assign')->middleware('permission:Super admin');
+        Route::post('/{item}/correction', [AgendaController::class, 'correction'])->name('agenda.correction')->middleware('permission:Super admin');
     });
 
     Route::post('/collaborators/{collaborator}/offboarding', [RhInboxController::class, 'requestForCollaborator'])

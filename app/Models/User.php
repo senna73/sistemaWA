@@ -8,6 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
 use App\Support\AccessControl;
+use App\Support\PopCatalog;
 use App\Models\ConfigTable;
 
 class User extends Authenticatable
@@ -26,6 +27,7 @@ class User extends Authenticatable
         'password',
         'collaborator_id',
         'role',
+        'work_function',
         'mobile',
         'active',
         'email_verified_at',
@@ -194,6 +196,15 @@ class User extends Authenticatable
         $normalized = $this->role;
 
         return AccessControl::assignableRoles()[$normalized] ?? 'Equipe';
+    }
+
+    public function workFunctionLabel(): ?string
+    {
+        if (! $this->work_function) {
+            return null;
+        }
+
+        return PopCatalog::workFunctions()[$this->work_function] ?? $this->work_function;
     }
 
     public function isAccounting(): bool

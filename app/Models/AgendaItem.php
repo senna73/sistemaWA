@@ -34,6 +34,11 @@ class AgendaItem extends Model
         'status',
         'recurrence',
         'parent_id',
+        'agenda_schedule_id',
+        'work_function',
+        'occurrence_on',
+        'effort_hours',
+        'correction_note',
         'collaborator_id',
         'offboarding_process_id',
         'candidate_id',
@@ -43,6 +48,8 @@ class AgendaItem extends Model
 
     protected $casts = [
         'due_at' => 'datetime',
+        'occurrence_on' => 'date',
+        'effort_hours' => 'decimal:2',
         'payload' => 'array',
     ];
 
@@ -59,6 +66,25 @@ class AgendaItem extends Model
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function schedule(): BelongsTo
+    {
+        return $this->belongsTo(AgendaSchedule::class, 'agenda_schedule_id');
+    }
+
+    public function workFunctionLabel(): ?string
+    {
+        if (! $this->work_function) {
+            return null;
+        }
+
+        return PopCatalog::workFunctions()[$this->work_function] ?? $this->work_function;
+    }
+
+    public function priorityLabel(): string
+    {
+        return PopCatalog::agendaPriorities()[$this->priority] ?? $this->priority;
     }
 
     public function collaborator(): BelongsTo

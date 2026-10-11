@@ -46,6 +46,22 @@ class SidebarMenu
                 'active' => ['dashboard'],
             ],
             [
+                'id' => 'director-agenda',
+                'label' => 'Agenda',
+                'icon' => 'bx-calendar-event',
+                'route' => 'agenda.index',
+                'active' => ['agenda.index', 'agenda.store', 'agenda.schedules.*'],
+                'visible' => fn (User $actor) => $actor->isSuperAdmin(),
+            ],
+            [
+                'id' => 'director-productivity',
+                'label' => 'Produtividade',
+                'icon' => 'bx-bar-chart-alt-2',
+                'route' => 'agenda.board',
+                'active' => ['agenda.board', 'agenda.status', 'agenda.assign', 'agenda.correction'],
+                'visible' => fn (User $actor) => $actor->isSuperAdmin() || filled($actor->work_function),
+            ],
+            [
                 'id' => 'portal',
                 'label' => 'Portal',
                 'icon' => 'bx-id-card',
@@ -96,14 +112,6 @@ class SidebarMenu
                         'route' => 'work.home',
                         'active' => ['work.home', 'work.project', 'work.cliomed', 'work.accounting', 'work.releases*', 'work.demo*'],
                         'visible' => fn (User $actor) => $actor->can(AccessControl::PERMISSION_WORK),
-                    ],
-                    [
-                        'id' => 'rh-agenda',
-                        'label' => 'Agenda',
-                        'icon' => 'bx-calendar-event',
-                        'route' => 'agenda.index',
-                        'active' => ['agenda.*'],
-                        'visible' => fn (User $actor) => $actor->can(PopCatalog::PERMISSION_AGENDA),
                     ],
                     [
                         'id' => 'rh-offboarding',

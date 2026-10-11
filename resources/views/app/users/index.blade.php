@@ -47,6 +47,7 @@
                             <th>Nome</th>
                             <th>E-mail</th>
                             <th>Papel</th>
+                            <th>Setor</th>
                             <th class="text-center" style="width: 140px;">Ações</th>
                         </tr>
                     </thead>
@@ -76,6 +77,7 @@
                 { data: 'name', name: 'name' },
                 { data: 'email', name: 'email' },
                 { data: 'role', name: 'role', orderable: false, searchable: false },
+                { data: 'work_function', name: 'work_function', orderable: false, searchable: false },
                 { data: 'actions', name: 'actions', orderable: false, searchable: false, className: 'text-center' }
             ],
             language: {

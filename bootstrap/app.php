@@ -15,12 +15,14 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('rh:detect-inactive-collaborators')->daily();
         $schedule->command('rh:cliomed-weekly-check')->weeklyOn(1, '07:00');
+        $schedule->command('rh:materialize-agenda-schedules')->daily();
     })
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->alias([
             'role' => \Spatie\Permission\Middleware\RoleMiddleware::class,
             'permission' => \Spatie\Permission\Middleware\PermissionMiddleware::class,
             'role_or_permission' => \Spatie\Permission\Middleware\RoleOrPermissionMiddleware::class,
+            'agenda.access' => \App\Http\Middleware\EnsureAgendaAccess::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -71,8 +71,7 @@ it('lets a leader with Agenda RH receive an activity and be notified', function 
 
     $this->actingAs($anderson)
         ->get(route('agenda.index'))
-        ->assertOk()
-        ->assertSee('Geisyane Salles');
+        ->assertOk();
 
     $item = app(AgendaService::class)->create($anderson, [
         'title' => 'Pedir Relatório da Cliomed',

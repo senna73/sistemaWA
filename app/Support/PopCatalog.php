@@ -299,6 +299,64 @@ class PopCatalog
         return ['rh', 'coordinator', 'super_admin'];
     }
 
+    /**
+     * Funções acompanhadas pelo diretor. Não substituem o papel de acesso.
+     *
+     * @return array<string, string>
+     */
+    public static function workFunctions(): array
+    {
+        return [
+            'dp_assistant' => 'Assistente de Departamento Pessoal',
+            'people_management' => 'Analista de Gestão de Pessoas',
+            'admin_finance' => 'Analista Administrativo e Financeiro',
+            'operational_control' => 'Analista de Controle Operacional',
+            'recruitment' => 'Analista de Recrutamento e Seleção',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function scheduleRecurrences(): array
+    {
+        return [
+            'daily' => 'Diária',
+            'monday' => 'Toda segunda',
+            'weekly' => 'Semanal',
+            'monthly' => 'Mensal',
+            'bimonthly' => 'A cada dois meses',
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function weekdays(): array
+    {
+        return [
+            1 => 'Segunda',
+            2 => 'Terça',
+            3 => 'Quarta',
+            4 => 'Quinta',
+            5 => 'Sexta',
+            6 => 'Sábado',
+            7 => 'Domingo',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function agendaPriorities(): array
+    {
+        return [
+            'baixa' => 'Baixa',
+            'normal' => 'Normal',
+            'alta' => 'Alta',
+        ];
+    }
+
     public static function canReceiveAgenda(\App\Models\User $user): bool
     {
         if (! $user->active) {
@@ -307,6 +365,7 @@ class PopCatalog
 
         return in_array($user->role, self::agendaAssigneeRoles(), true)
             || $user->isSuperAdmin()
+            || filled($user->work_function)
             || $user->can(self::PERMISSION_AGENDA);
     }
 }

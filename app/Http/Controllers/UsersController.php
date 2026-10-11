@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Company;
 use App\Models\UserHasCompany;
 use App\Support\AccessControl;
+use App\Support\PopCatalog;
 use Exception;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Request;
@@ -59,6 +60,9 @@ class UsersController extends Controller
                 }
 
                 return '<select class="form-select form-select-sm user-role-select" data-user-id="'.$user->id.'">'.$options.'</select>';
+            })
+            ->addColumn('work_function', function ($user) {
+                return e($user->workFunctionLabel() ?? '—');
             })
             ->addColumn('actions', function ($user) {
                 return '
@@ -172,6 +176,7 @@ class UsersController extends Controller
                 ],
                 'password' => ['required', 'confirmed', Rules\Password::defaults()],
                 'role' => ['nullable', Rule::in(AccessControl::roleKeys())],
+                'work_function' => ['nullable', Rule::in(array_keys(PopCatalog::workFunctions()))],
                 'mobile' => ['nullable', 'string', 'max:20'],
             ], [
                 'name.required' => 'O campo nome é obrigatório.',
@@ -208,6 +213,7 @@ class UsersController extends Controller
                 'collaborator_id' => $request->collaborator_id ?: null,
                 'mobile' => $request->mobile,
                 'role' => $role,
+                'work_function' => $this->actorCanManageRoles() ? ($request->input('work_function') ?: null) : null,
             ]);
 
             event(new Registered($user));
@@ -268,6 +274,7 @@ class UsersController extends Controller
             ],
             'password' => ['nullable', 'confirmed', Rules\Password::defaults()],
             'role' => ['nullable', Rule::in(AccessControl::roleKeys())],
+            'work_function' => ['nullable', Rule::in(array_keys(PopCatalog::workFunctions()))],
             'mobile' => ['nullable', 'string', 'max:20'],
         ], [
             'name.required' => 'O campo nome é obrigatório.',
@@ -300,6 +307,9 @@ class UsersController extends Controller
                 'email' => $request->email,
                 'collaborator_id' => $request->collaborator_id ?: null,
                 'mobile' => $request->mobile,
+                ...($this->actorCanManageRoles() && $request->exists('work_function')
+                    ? ['work_function' => $request->input('work_function') ?: null]
+                    : []),
             ]);
             if ($request->filled('password')) {
                 $user->password = $request->password;
@@ -406,6 +416,7 @@ class UsersController extends Controller
             'collaborators' => Collaborator::getActiveLeaders(),
             'companies' => Company::getActive(),
             'roles' => AccessControl::assignableRoles(),
+            'workFunctions' => PopCatalog::workFunctions(),
             'canManageRoles' => $canManageRoles,
         ], $extra);
     }
