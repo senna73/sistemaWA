@@ -331,12 +331,17 @@ class WorkHubService
     {
         $roleLabels = RhActivitySettings::roleLabels($activity);
         $sectorLabels = RhActivitySettings::sectorLabels($activity);
-        $restricted = RhActivitySettings::sectors($activity) !== [];
+        $rhSelected = array_intersect(RhActivitySettings::audiences($activity), RhActivitySettings::sectorScopedRoles()) !== [];
+        $sectors = RhActivitySettings::sectors($activity);
         $tooltip = $roleLabels === [] && $sectorLabels === []
             ? 'Ninguém além do diretor vê esta área.'
             : 'Quem vê: '.implode(', ', array_merge($roleLabels, $sectorLabels))
-                .($restricted ? '. Só quem está no setor da agenda marcado.' : (in_array('rh', RhActivitySettings::audiences($activity), true) ? '. Qualquer setor da agenda do RH.' : ''))
-                .'. O diretor sempre vê.';
+                .($rhSelected
+                    ? ($sectors === []
+                        ? '. Sem setor marcado, o RH não vê.'
+                        : '. O RH só vê se o papel e o setor baterem ao mesmo tempo.')
+                    : '.')
+                .' Os outros papéis marcados não dependem do setor. O diretor sempre vê.';
 
         return $project + [
             'activity' => $activity,

@@ -43,7 +43,7 @@
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="mb-0">Atividades do RH</h5>
-                            <p class="text-muted small mb-0 mt-1">O diretor sempre vê tudo. O <strong>setor da agenda</strong> restringe a tela a quem está naquele setor. Sem setor marcado, vale só o papel. Com os dois, a pessoa precisa do papel e do setor.</p>
+                            <p class="text-muted small mb-0 mt-1">O diretor sempre vê tudo. O card só aparece se o <strong>papel</strong> estiver marcado. O <strong>setor da agenda</strong> vale só para o RH: essa pessoa precisa do papel e do setor ao mesmo tempo. Sem setor marcado, o RH não vê. Coordenação, contabilidade e os outros papéis não dependem do setor.</p>
                         </div>
                         <div class="card-body">
                             @foreach ($rhActivities as $key => $activity)

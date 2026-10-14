@@ -90,15 +90,17 @@ it('starts rh activity cards enabled and lets the admin hide one by one', functi
 
 it('lets the director restrict an activity to a sector', function () {
     $admin = settingsAdmin();
-    $rh = User::factory()->create(['role' => 'rh']);
+    $rh = User::factory()->create(['role' => 'rh', 'work_function' => 'recruitment']);
     AccessControl::applyToUser($rh, 'rh');
-    $accounting = User::factory()->create(['role' => 'accounting']);
+    $accounting = User::factory()->create(['role' => 'accounting', 'work_function' => 'dp_assistant']);
     AccessControl::applyToUser($accounting, 'accounting');
 
     $this->actingAs($admin)
         ->put(route('settings.update'), rhActivityPayload([
             'rh_activity_cliomed_audiences' => ['rh'],
+            'rh_activity_cliomed_sectors' => ['recruitment'],
             'rh_activity_accounting_audiences' => ['accounting'],
+            'rh_activity_accounting_sectors' => ['recruitment'],
         ]))
         ->assertRedirect();
 
@@ -114,8 +116,8 @@ it('lets the director restrict an activity to a sector', function () {
         ->assertOk()
         ->assertSee('Conferência Cliomed')
         ->assertSee('Editar quem vê cada área')
-        ->assertSee('DP')
-        ->assertSee('Recrutamento');
+        ->assertSee('Recrutamento')
+        ->assertDontSee('>DP<');
 
     $this->actingAs($accounting->fresh())
         ->get(route('work.cliomed'))
@@ -134,18 +136,23 @@ it('restricts a screen to the agenda sector of the user', function () {
     AccessControl::applyToUser($recruitment, 'rh');
     $noSector = User::factory()->create(['role' => 'rh', 'work_function' => null]);
     AccessControl::applyToUser($noSector, 'rh');
+    $coordinator = User::factory()->create(['role' => 'coordinator', 'work_function' => 'dp_assistant']);
+    AccessControl::applyToUser($coordinator, 'coordinator');
 
     $this->actingAs($admin)
         ->put(route('settings.update'), rhActivityPayload([
             'rh_activity_cliomed_audiences' => ['rh'],
             'rh_activity_cliomed_sectors' => ['recruitment'],
+            'rh_activity_releases_sectors' => ['recruitment'],
         ]))
         ->assertRedirect();
 
     expect(RhActivitySettings::sectors(RhActivitySettings::CLIOMED))->toBe(['recruitment'])
         ->and(RhActivitySettings::visible(RhActivitySettings::CLIOMED, $recruitment->fresh()))->toBeTrue()
         ->and(RhActivitySettings::visible(RhActivitySettings::CLIOMED, $dp->fresh()))->toBeFalse()
-        ->and(RhActivitySettings::visible(RhActivitySettings::CLIOMED, $noSector->fresh()))->toBeFalse();
+        ->and(RhActivitySettings::visible(RhActivitySettings::CLIOMED, $noSector->fresh()))->toBeFalse()
+        ->and(RhActivitySettings::visible(RhActivitySettings::RELEASES, $coordinator->fresh()))->toBeTrue()
+        ->and(RhActivitySettings::visible(RhActivitySettings::CLIOMED, $coordinator->fresh()))->toBeFalse();
 
     $this->actingAs($dp->fresh())->get(route('work.cliomed'))->assertForbidden();
     $this->actingAs($recruitment->fresh())->get(route('work.cliomed'))->assertOk();

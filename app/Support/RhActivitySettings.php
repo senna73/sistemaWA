@@ -30,6 +30,17 @@ class RhActivitySettings
     public const INACTIVITY = 'inactivity';
 
     /**
+     * Papel que carrega setor da agenda. Só este papel precisa bater papel e setor ao mesmo tempo.
+     * O slug pode deixar de ser "rh" (por exemplo, "administrativo") sem mudar a regra dos outros papéis.
+     *
+     * @return list<string>
+     */
+    public static function sectorScopedRoles(): array
+    {
+        return ['rh'];
+    }
+
+    /**
      * Papéis de acesso que o diretor pode liberar em cada área.
      *
      * @return array<string, string>
@@ -217,23 +228,14 @@ class RhActivitySettings
     }
 
     /**
-     * Setores da agenda visíveis no card do diretor.
-     * Se a área é do RH e nenhum setor foi marcado, mostra todos: qualquer setor do RH vê.
+     * Setores marcados na configuração. O card do diretor mostra só estes.
+     * Sem setor marcado, o papel de RH não vê a área.
      *
      * @return list<string>
      */
     public static function displaySectors(string $key): array
     {
-        $selected = self::sectors($key);
-        if ($selected !== []) {
-            return $selected;
-        }
-
-        if (in_array('rh', self::audiences($key), true)) {
-            return array_keys(self::audienceSectors());
-        }
-
-        return [];
+        return self::sectors($key);
     }
 
     /**
@@ -268,22 +270,15 @@ class RhActivitySettings
             return true;
         }
 
-        $roles = self::audiences($key);
-        $sectors = self::sectors($key);
-
-        if ($roles === [] && $sectors === []) {
+        if (! in_array($user->role, self::audiences($key), true)) {
             return false;
         }
 
-        if ($roles !== [] && ! in_array($user->role, $roles, true)) {
-            return false;
+        if (! in_array($user->role, self::sectorScopedRoles(), true)) {
+            return true;
         }
 
-        if ($sectors !== [] && ! in_array((string) $user->work_function, $sectors, true)) {
-            return false;
-        }
-
-        return true;
+        return in_array((string) $user->work_function, self::sectors($key), true);
     }
 
     public static function visible(string $key, ?User $user = null): bool

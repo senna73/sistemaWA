@@ -7,18 +7,31 @@ use App\Models\User;
 use App\Support\AccessControl;
 use App\Support\RhActivitySettings;
 
-function workHubUser(string $role): User
+function workHubUser(string $role, ?string $sector = null): User
 {
     AccessControl::seed();
-    $user = User::factory()->create(['role' => $role]);
+    $user = User::factory()->create(['role' => $role, 'work_function' => $sector]);
     AccessControl::applyToUser($user, $role);
 
     return $user->fresh();
 }
 
+function allowRhActivitiesForSector(string $sector): void
+{
+    foreach (RhActivitySettings::catalog() as $key => $activity) {
+        if (! in_array('rh', $activity['audiences'], true)) {
+            continue;
+        }
+
+        ConfigTable::putJson(RhActivitySettings::sectorFlag($key), [$sector]);
+    }
+}
+
 it('shows rh management boards to rh and hides them from the coordinator', function () {
-    $rh = workHubUser('rh');
-    $coordinator = workHubUser('coordinator');
+    allowRhActivitiesForSector('dp_assistant');
+    $rh = workHubUser('rh', 'dp_assistant');
+    $otherSector = workHubUser('rh', 'recruitment');
+    $coordinator = workHubUser('coordinator', 'dp_assistant');
 
     $this->actingAs($rh)
         ->get(route('work.home'))
@@ -32,6 +45,14 @@ it('shows rh management boards to rh and hides them from the coordinator', funct
         ->assertSee('Financeiro e DRE')
         ->assertSee('Operação e uniformes')
         ->assertDontSee('Editar quem vê cada área');
+
+    $this->actingAs($otherSector)
+        ->get(route('work.home'))
+        ->assertOk()
+        ->assertDontSee('Demandas a atender')
+        ->assertDontSee('Gestão RH Demissional')
+        ->assertDontSee('Conferência Cliomed')
+        ->assertDontSee('Financeiro e DRE');
 
     $this->actingAs($coordinator)
         ->get(route('work.home'))
@@ -97,11 +118,12 @@ it('blocks coordinator from rh management routes', function () {
 });
 
 it('hides disabled rh activity cards from rh and coordinator screens', function () {
+    allowRhActivitiesForSector('dp_assistant');
     ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::DEMANDS), false);
     ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::OFFBOARDING), false);
     ConfigTable::putBool(RhActivitySettings::flag(RhActivitySettings::OFFBOARDING_REQUEST), false);
 
-    $rh = workHubUser('rh');
+    $rh = workHubUser('rh', 'dp_assistant');
     $coordinator = workHubUser('coordinator');
 
     $this->actingAs($rh)
