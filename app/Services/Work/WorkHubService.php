@@ -157,7 +157,7 @@ class WorkHubService
         $projects = [];
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::DEMANDS, $user)) {
             $demandSummary = $this->demandQueueSummary();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::DEMANDS, [
                 'key' => 'demands',
                 'title' => 'Demandas a atender',
                 'subtitle' => 'Fila operacional do RH: Pix, cadastro, declaração e pedidos da loja.',
@@ -167,7 +167,7 @@ class WorkHubService
                     ? 'Aguardando o RH'
                     : ($demandSummary['review'] > 0 ? 'Em conferência' : 'Em dia'),
                 'url' => $user->isRh() ? route('work.demands') : route('demands.index'),
-            ];
+            ]);
         }
 
         if (
@@ -176,7 +176,7 @@ class WorkHubService
         ) {
             $rh = $this->rhDutyCount();
             $gestor = $this->gestorDutyCount();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::OFFBOARDING, [
                 'key' => 'offboarding',
                 'title' => 'Gestão RH Demissional',
                 'subtitle' => 'Desligamentos, inatividade e transferências.',
@@ -184,7 +184,7 @@ class WorkHubService
                 'needs_action' => ($rh + $gestor) > 0,
                 'kicker' => $rh > 0 ? 'Aguardando o RH' : ($gestor > 0 ? 'Análises do Super admin' : 'Em dia'),
                 'url' => route('work.project', 'offboarding'),
-            ];
+            ]);
         }
 
         if (
@@ -192,7 +192,7 @@ class WorkHubService
             && RhActivitySettings::visible(RhActivitySettings::RECRUITMENT, $user)
         ) {
             $openHires = Candidate::query()->whereIn('status', Candidate::OPEN_STATUSES)->count();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::RECRUITMENT, [
                 'key' => 'recruitment',
                 'title' => 'Processo de contratação',
                 'subtitle' => 'Documentos, exame, ASO, contabilidade e cadastro na loja.',
@@ -200,12 +200,12 @@ class WorkHubService
                 'needs_action' => $openHires > 0,
                 'kicker' => $openHires > 0 ? 'Admissão em andamento' : 'Em dia',
                 'url' => route('work.project', 'recruitment'),
-            ];
+            ]);
         }
 
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::CLIOMED, $user)) {
             $weekly = $this->clinics->weeklyState($this->clinics->ensureWeeklyCheck());
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::CLIOMED, [
                 'key' => 'cliomed',
                 'title' => 'Conferência Cliomed',
                 'subtitle' => 'Planilha da semana, inconsistências e fechamento da base.',
@@ -214,7 +214,7 @@ class WorkHubService
                 'kicker' => $weekly['kicker'],
                 'tone' => $weekly['tone'],
                 'url' => route('work.cliomed'),
-            ];
+            ]);
         }
 
         if (
@@ -222,7 +222,7 @@ class WorkHubService
             && RhActivitySettings::visible(RhActivitySettings::ACCOUNTING, $user)
         ) {
             $openAccounting = \App\Models\AccountingListRow::query()->whereNull('resolved_at')->where('bucket', '!=', \App\Models\AccountingListRow::BUCKET_OK)->count();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::ACCOUNTING, [
                 'key' => 'accounting',
                 'title' => 'Conferência da contabilidade',
                 'subtitle' => 'A lista da contabilidade é a base oficial. Bata um a um o que estiver fora do padrão.',
@@ -230,14 +230,14 @@ class WorkHubService
                 'needs_action' => $openAccounting > 0,
                 'kicker' => $openAccounting > 0 ? 'Fora do padrão' : 'Em dia',
                 'url' => route('work.accounting'),
-            ];
+            ]);
         }
 
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::RELEASES, $user)) {
             $pendingReleases = \App\Models\DailyRateReleaseRequest::query()
                 ->where('status', \App\Models\DailyRateReleaseRequest::STATUS_PENDING)
                 ->count();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::RELEASES, [
                 'key' => 'releases',
                 'title' => 'Liberações de diária',
                 'subtitle' => 'Aprovar ou recusar pedidos de lançamento fora do bloqueio.',
@@ -245,12 +245,12 @@ class WorkHubService
                 'needs_action' => $pendingReleases > 0,
                 'kicker' => $pendingReleases > 0 ? 'Aguardando o RH' : 'Em dia',
                 'url' => route('work.releases.index'),
-            ];
+            ]);
         }
 
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::FINANCE, $user)) {
             $financePending = FinancialBatches::query()->whereIn('status', ['pending', 'processing'])->count();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::FINANCE, [
                 'key' => 'finance',
                 'title' => 'Financeiro e DRE',
                 'subtitle' => 'Entradas, saídas e resultados por loja.',
@@ -258,12 +258,12 @@ class WorkHubService
                 'needs_action' => $financePending > 0,
                 'kicker' => $financePending > 0 ? 'Pendência financeira' : 'Em dia',
                 'url' => route('work.project', 'finance'),
-            ];
+            ]);
         }
 
         if ($user->managesRhWork() && RhActivitySettings::visible(RhActivitySettings::UNIFORMS, $user)) {
             $uniformTasks = CollaboratorUniform::query()->whereNull('delivered_at')->count();
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::UNIFORMS, [
                 'key' => 'uniforms',
                 'title' => 'Operação e uniformes',
                 'subtitle' => 'Solicitações, estoque e entregas.',
@@ -271,7 +271,7 @@ class WorkHubService
                 'needs_action' => $uniformTasks > 0,
                 'kicker' => $uniformTasks > 0 ? 'Entrega pendente' : 'Em dia',
                 'url' => route('work.project', 'uniforms'),
-            ];
+            ]);
         }
 
         return $projects;
@@ -297,7 +297,7 @@ class WorkHubService
         $projects = [];
 
         if (RhActivitySettings::visible(RhActivitySettings::RELEASES, $user)) {
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::RELEASES, [
                 'key' => 'releases',
                 'title' => 'Liberação de diária',
                 'subtitle' => 'Peça ao RH a liberação para lançar uma diária bloqueada.',
@@ -305,11 +305,11 @@ class WorkHubService
                 'needs_action' => true,
                 'kicker' => 'Pedido do coordenador',
                 'url' => route('work.releases.create'),
-            ];
+            ]);
         }
 
         if (RhActivitySettings::visible(RhActivitySettings::INACTIVITY, $user)) {
-            $projects[] = [
+            $projects[] = $this->withAudience(RhActivitySettings::INACTIVITY, [
                 'key' => 'inactivity',
                 'title' => 'Inatividade da equipe',
                 'subtitle' => 'Justifique 18 dias sem diária ou peça a liberação.',
@@ -317,10 +317,34 @@ class WorkHubService
                 'needs_action' => $openInactivity > 0,
                 'kicker' => $openInactivity > 0 ? 'Resposta do coordenador' : 'Em dia',
                 'url' => route('work.project', ['project' => 'offboarding', 'stage' => 'inactivity']),
-            ];
+            ]);
         }
 
         return $projects;
+    }
+
+    /**
+     * @param  array<string, mixed>  $project
+     * @return array<string, mixed>
+     */
+    private function withAudience(string $activity, array $project): array
+    {
+        $roleLabels = RhActivitySettings::roleLabels($activity);
+        $sectorLabels = RhActivitySettings::sectorLabels($activity);
+        $restricted = RhActivitySettings::sectors($activity) !== [];
+        $tooltip = $roleLabels === [] && $sectorLabels === []
+            ? 'Ninguém além do diretor vê esta área.'
+            : 'Quem vê: '.implode(', ', array_merge($roleLabels, $sectorLabels))
+                .($restricted ? '. Só quem está no setor da agenda marcado.' : (in_array('rh', RhActivitySettings::audiences($activity), true) ? '. Qualquer setor da agenda do RH.' : ''))
+                .'. O diretor sempre vê.';
+
+        return $project + [
+            'activity' => $activity,
+            'role_labels' => $roleLabels,
+            'sector_labels' => $sectorLabels,
+            'audience_labels' => array_merge($roleLabels, $sectorLabels),
+            'audience_tooltip' => $tooltip,
+        ];
     }
 
     public function storeBoard(?string $stage = null): array

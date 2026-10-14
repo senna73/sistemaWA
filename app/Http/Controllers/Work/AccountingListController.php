@@ -18,6 +18,7 @@ class AccountingListController extends Controller
 {
     public function show(AccountingListService $lists): View
     {
+        abort_unless(request()->user()?->can(PopCatalog::PERMISSION_ACCOUNTING_LIST) || request()->user()?->isSuperAdmin(), 403);
         RhActivitySettings::abortUnlessVisible(RhActivitySettings::ACCOUNTING, request()->user());
         $check = $lists->current();
         $pending = $check

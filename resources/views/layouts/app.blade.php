@@ -281,6 +281,13 @@
     <!-- Input Mask -->
     <script src="https://cdn.jsdelivr.net/npm/inputmask@5.0.6/dist/inputmask.min.js"></script>
 
+    <script>
+        document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(function (el) {
+            if (window.bootstrap && bootstrap.Tooltip) {
+                bootstrap.Tooltip.getOrCreateInstance(el);
+            }
+        });
+    </script>
     <script src="{{ asset('vendor\rappasoft\livewire-tables\js\laravel-livewire-tables.min.js') }}"></script>
     <script src="{{ asset('vendor\rappasoft\livewire-tables\js\laravel-livewire-tables-thirdparty.min.js') }}"></script>
 	  @livewireScripts

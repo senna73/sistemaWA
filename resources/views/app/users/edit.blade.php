@@ -45,7 +45,7 @@
                                     <option value="{{ $value }}" @selected(($user?->work_function ?? '') === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>
-                            <div class="form-text">Quem tem setor vê as atividades da fila daquele setor. O diretor configura as agendas.</div>
+                            <div class="form-text">Quem tem setor vê a fila da agenda daquele setor. O diretor também usa este setor para liberar ou restringir telas em Configurações.</div>
                         </div>
                     @elseif ($user?->workFunctionLabel())
                         <div class="mb-3">

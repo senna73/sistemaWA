@@ -27,7 +27,9 @@
                                 <span class="small text-muted">#{{ $item->id }}</span>
                             </div>
                             <div class="small text-muted">
-                                {{ $item->workFunctionLabel() }}
+                                @if ($item->workFunctionLabel())
+                                    <span class="badge bg-label-info" data-bs-toggle="tooltip" title="Só o setor {{ $item->workFunctionLabel() }} vê esta atividade na produtividade.">{{ $item->workFunctionLabel() }}</span>
+                                @endif
                                 · <span data-agenda-assignee>{{ $item->assignee?->name ?? 'Fila do setor' }}</span>
                                 · {{ $item->due_at?->format('d/m H:i') }}
                             </div>

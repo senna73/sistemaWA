@@ -49,4 +49,21 @@ class ConfigTable extends Model
     {
         static::put($id, $enabled ? '1' : '0');
     }
+
+    public static function json(string $id, mixed $default = null): mixed
+    {
+        $value = static::getValue($id);
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        $decoded = json_decode((string) $value, true);
+
+        return json_last_error() === JSON_ERROR_NONE ? $decoded : $default;
+    }
+
+    public static function putJson(string $id, mixed $value): void
+    {
+        static::put($id, json_encode($value, JSON_UNESCAPED_UNICODE));
+    }
 }

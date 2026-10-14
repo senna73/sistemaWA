@@ -71,13 +71,34 @@
 
         @if (count($projects))
         <div class="mb-4">
-            <h5 class="work-section-title">Suas áreas</h5>
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <h5 class="work-section-title mb-0">Suas áreas</h5>
+                @if ($user->isSuperAdmin())
+                    <a class="small" href="{{ route('settings.index') }}">Editar quem vê cada área</a>
+                @endif
+            </div>
+            @if ($user->isSuperAdmin())
+                <p class="text-muted small mt-1 mb-2">As tags mostram o papel e o setor da agenda. Passe o mouse para o detalhe. Só o diretor vê este resumo.</p>
+            @endif
             <div class="work-areas">
                 @foreach ($projects as $project)
                     <a class="work-area {{ $project['tone'] ?? ($project['needs_action'] ? 'is-due' : '') }}" href="{{ $project['url'] }}">
                         <div class="work-kicker">{{ $project['kicker'] }}</div>
                         <strong>{{ $project['title'] }}</strong>
                         <p>{{ $project['subtitle'] }}</p>
+                        @if ($user->isSuperAdmin() && (isset($project['role_labels']) || isset($project['sector_labels'])))
+                            <div class="work-audience" data-bs-toggle="tooltip" data-bs-placement="top" title="{{ $project['audience_tooltip'] }}">
+                                @foreach ($project['role_labels'] ?? [] as $label)
+                                    <span class="badge bg-label-info">{{ $label }}</span>
+                                @endforeach
+                                @foreach ($project['sector_labels'] ?? [] as $label)
+                                    <span class="badge bg-label-primary">{{ $label }}</span>
+                                @endforeach
+                                @if (($project['role_labels'] ?? []) === [] && ($project['sector_labels'] ?? []) === [])
+                                    <span class="badge bg-label-secondary">Só diretor</span>
+                                @endif
+                            </div>
+                        @endif
                         <div class="work-area-foot">
                             <span class="badge {{ $project['needs_action'] ? 'bg-label-warning' : 'bg-label-secondary' }}">{{ $project['badge'] }}</span>
                             <span class="btn btn-sm {{ $project['needs_action'] ? 'btn-primary' : 'btn-outline-secondary' }}">
@@ -188,6 +209,13 @@
         }
         .work-area strong { display: block; color: #111827; overflow-wrap: anywhere; }
         .work-area p { margin: 0.2rem 0 0; color: #6b7280; font-size: 0.86rem; overflow-wrap: anywhere; }
+        .work-audience {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.35rem;
+            margin-top: 0.55rem;
+        }
+        .work-audience .badge { font-weight: 600; }
         .work-area.is-due { box-shadow: inset 3px 0 0 #4f46e5; }
         .work-area.is-week {
             background: #fffbeb;

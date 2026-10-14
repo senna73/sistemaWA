@@ -30,7 +30,8 @@ it('shows rh management boards to rh and hides them from the coordinator', funct
         ->assertSee('Conferência Cliomed')
         ->assertSee('Liberações de diária')
         ->assertSee('Financeiro e DRE')
-        ->assertSee('Operação e uniformes');
+        ->assertSee('Operação e uniformes')
+        ->assertDontSee('Editar quem vê cada área');
 
     $this->actingAs($coordinator)
         ->get(route('work.home'))
