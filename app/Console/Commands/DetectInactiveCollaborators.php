@@ -9,7 +9,7 @@ class DetectInactiveCollaborators extends Command
 {
     protected $signature = 'rh:detect-inactive-collaborators';
 
-    protected $description = 'Auditoria de inatividade: alerta aos 18 dias e processo aos 25 dias';
+    protected $description = 'Auditoria de inatividade: alerta aos 18 dias. A ida automática para demissão aos 25 dias está pausada até janeiro/2027.';
 
     public function handle(InactiveCollaboratorDetector $detector): int
     {

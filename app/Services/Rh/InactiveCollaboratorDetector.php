@@ -2,10 +2,12 @@
 
 namespace App\Services\Rh;
 
+use App\Models\AgendaItem;
 use App\Models\Collaborator;
 use App\Models\InactivityAllowance;
 use App\Models\InactivityAudit;
 use App\Models\OffboardingProcess;
+use App\Models\OffboardingStatusEvent;
 use App\Models\RhTask;
 use App\Models\User;
 use App\Services\WhatsApp\WhatsAppNotifier;
@@ -19,7 +21,10 @@ class InactiveCollaboratorDetector
 {
     public const ALERT_DAYS = 18;
 
+    /** Usado de novo em janeiro/2027, quando o bloco comentado em detect() voltar. */
     public const INACTIVITY_DAYS = 25;
+
+    public const AUTO_DISMISSAL_REASON = 'Mais de 25 dias sem diária.';
 
     public function __construct(
         private WhatsAppNotifier $whatsApp,
@@ -50,16 +55,126 @@ class InactiveCollaboratorDetector
                         continue;
                     }
 
-                    if ($days >= self::INACTIVITY_DAYS) {
-                        $created += $this->open25($collaborator, $days, $now);
-                        continue;
-                    }
+                    // DÉBITO TÉCNICO — pausado até janeiro/2027. Descomentar este bloco em janeiro.
+                    // Aos 25 dias sem diária o colaborador era movido sozinho para a zona de demissão.
+                    // Enquanto estiver comentado, quem passa de 25 dias segue só no alerta de 18 dias.
+                    // if ($days >= self::INACTIVITY_DAYS) {
+                    //     $created += $this->open25($collaborator, $days, $now);
+                    //     continue;
+                    // }
 
                     $created += $this->open18($collaborator, $days, $now);
                 }
             });
 
         return $created;
+    }
+
+    /**
+     * Tira da zona de demissão quem entrou pela regra automática de 25 dias sem diária.
+     * Quem foi aberto à mão pelo RH (outro motivo) permanece.
+     *
+     * @return list<string>
+     */
+    public function revertAutomaticDismissals(): array
+    {
+        $actor = User::query()->where('role', 'rh')->orderBy('id')->first()
+            ?? User::query()->orderBy('id')->first();
+
+        if (! $actor) {
+            return [];
+        }
+
+        $note = 'Débito técnico: reversão da entrada automática na zona de demissão (25 dias sem diária). Retomar em janeiro/2027.';
+        $names = [];
+
+        $linkedIds = InactivityAudit::query()
+            ->where('status', InactivityAudit::STATUS_OPEN_25)
+            ->whereNotNull('offboarding_process_id')
+            ->pluck('offboarding_process_id');
+
+        $processes = OffboardingProcess::query()
+            ->with('collaborator')
+            ->where(function ($query) use ($linkedIds) {
+                $query->where(function ($auto) {
+                    $auto->where('kind', OffboardingProcess::KIND_INACTIVITY)
+                        ->where(function ($reason) {
+                            $reason->where('reason', self::AUTO_DISMISSAL_REASON)
+                                ->orWhere('notes', self::AUTO_DISMISSAL_REASON);
+                        });
+                });
+
+                if ($linkedIds->isNotEmpty()) {
+                    $query->orWhereIn('id', $linkedIds);
+                }
+            })
+            ->where(function ($query) {
+                $query->whereIn('status', OffboardingProcess::OPEN_STATUSES)
+                    ->orWhere('status', OffboardingProcess::STAGE_DESLIGADO_CONCLUIDO);
+            })
+            ->get();
+
+        foreach ($processes as $process) {
+            DB::transaction(function () use ($process, $actor, $note, &$names) {
+                if ($process->isOpen()) {
+                    $this->offboarding->cancel($process, $actor, $note);
+                } else {
+                    $from = $process->status;
+                    $process->collaborator?->update(['active' => true]);
+                    $process->update([
+                        'status' => OffboardingProcess::STAGE_CANCELADO,
+                        'blocks_daily_rates' => false,
+                        'notes' => $note,
+                    ]);
+                    OffboardingStatusEvent::create([
+                        'offboarding_process_id' => $process->id,
+                        'from_status' => $from,
+                        'to_status' => OffboardingProcess::STAGE_CANCELADO,
+                        'actor_id' => $actor->id,
+                        'notes' => $note,
+                        'event_type' => 'status',
+                    ]);
+                    $process->tasks()
+                        ->where('status', RhTask::STATUS_PENDING)
+                        ->get()
+                        ->each(fn (RhTask $task) => $task->markCancelled($actor));
+                }
+
+                AgendaItem::query()
+                    ->where('offboarding_process_id', $process->id)
+                    ->whereNotIn('status', [AgendaItem::STATUS_DONE, AgendaItem::STATUS_CANCELLED])
+                    ->update(['status' => AgendaItem::STATUS_CANCELLED]);
+
+                $names[] = $process->collaborator?->name ?? ('Colaborador #'.$process->collaborator_id);
+            });
+        }
+
+        InactivityAudit::query()
+            ->with('collaborator')
+            ->where('status', InactivityAudit::STATUS_OPEN_25)
+            ->get()
+            ->each(function (InactivityAudit $audit) use (&$names) {
+                $names[] = $audit->collaborator?->name ?? ('Colaborador #'.$audit->collaborator_id);
+                $audit->update([
+                    'status' => filled($audit->coordinator_response)
+                        ? InactivityAudit::STATUS_WATCH
+                        : InactivityAudit::STATUS_OPEN_18,
+                    'offboarding_process_id' => null,
+                ]);
+            });
+
+        RhTask::query()
+            ->with('collaborator')
+            ->where('type', RhTask::TYPE_INACTIVITY)
+            ->where('status', RhTask::STATUS_PENDING)
+            ->where('title', 'like', '[DEMISSÃO POR INATIVIDADE]%')
+            ->get()
+            ->each(function (RhTask $task) use ($actor, &$names) {
+                $names[] = $task->collaborator?->name ?? ('Colaborador #'.$task->collaborator_id);
+                $task->markCancelled($actor);
+            });
+
+        return array_values(array_unique($names));
     }
 
     public function recordCoordinatorResponse(InactivityAudit $audit, User $coordinator, array $data): InactivityAudit
@@ -179,6 +294,10 @@ class InactiveCollaboratorDetector
         return 1;
     }
 
+    /**
+     * DÉBITO TÉCNICO: pausado até janeiro/2027.
+     * A chamada em detect() está comentada. Descomentar as duas coisas juntas em janeiro.
+     */
     private function open25(Collaborator $collaborator, int $days, Carbon $now): int
     {
         $audit = InactivityAudit::query()
@@ -211,7 +330,7 @@ class InactiveCollaboratorDetector
             $system,
             OffboardingProcess::ORIGIN_COORDINATOR,
             OffboardingProcess::KIND_INACTIVITY,
-            'Mais de 25 dias sem diária.',
+            self::AUTO_DISMISSAL_REASON,
         );
 
         if ($audit) {

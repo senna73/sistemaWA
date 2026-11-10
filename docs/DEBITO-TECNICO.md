@@ -42,6 +42,18 @@ A regra que tinha subido descontava INSS direto na folha de quem foi cadastrado 
 - Lançamento e edição de diária (`DailyRateController`, `resources/views/app/daily-rate/edit.blade.php`)
 - Recálculo de lote (`BatchesController`)
 
+### Diárias já lançadas
+
+Lançamento novo e recálculo de lote passam a gravar `inss_paid` = 0 e a diária integral.
+
+Quem ainda não foi pago e ficou com o desconto gravado (por exemplo 104,07 em vez de 110) é reajustado pelo comando `php artisan finance:restore-unpaid-inss-pay`. Sem `--apply` ele só lista. Com `--apply` devolve o INSS ao `pay_amount` e zera `inss_paid`. O lucro da diária não muda.
+
+Não entra no reajuste:
+
+- diária com status `processado` (já recebida)
+- diária dentro de lote `processing` ou `completed` (a carteira já foi creditada com o valor antigo)
+- diária cancelada ou inativa
+
 ### O que não muda
 
-Conferência de registro no INSS na admissão e no desligamento segue como está. Diárias já gravadas não são reescritas por esta suspensão; lançamento novo e recálculo de lote passam a gravar `inss_paid` = 0 e a diária integral do colaborador.
+Conferência de registro no INSS na admissão e no desligamento segue como está.

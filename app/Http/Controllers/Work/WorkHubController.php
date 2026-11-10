@@ -183,8 +183,8 @@ class WorkHubController extends Controller
         return redirect()
             ->route('work.project', 'offboarding')
             ->with('status', $created > 0
-                ? $created.' colaborador(es) entraram na revisão de inatividade.'
-                : 'Nenhum colaborador novo com 25 dias ou mais sem diária.');
+                ? $created.' colaborador(es) entraram no alerta de 18 dias sem diária.'
+                : 'Nenhum colaborador novo no alerta de 18 dias. A ida automática para demissão aos 25 dias está pausada até janeiro.');
     }
 
     public function show(Request $request, OffboardingProcess $process): View

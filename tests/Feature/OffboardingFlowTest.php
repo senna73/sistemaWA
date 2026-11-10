@@ -190,7 +190,7 @@ it('refuses baixa without accounting docs and completes when checked', function 
     expect(OffboardingProcess::blocksDailyRatesFor($collaborator->id))->toBeTrue();
 });
 
-it('creates an 18 day inactivity audit and a 25 day offboarding process', function () {
+it('creates an 18 day inactivity audit and keeps 25 days out of dismissal until january', function () {
     $this->mock(WhatsAppNotifier::class, function (MockInterface $mock) {
         $mock->shouldIgnoreMissing();
         $mock->shouldReceive('removeFromStoreGroups')->andReturn(['result' => 'ok']);
@@ -217,7 +217,12 @@ it('creates an 18 day inactivity audit and a 25 day offboarding process', functi
         'status' => InactivityAudit::STATUS_OPEN_18,
     ]);
 
-    $this->assertDatabaseHas('offboarding_processes', [
+    $this->assertDatabaseHas('inactivity_audits', [
+        'collaborator_id' => $off->id,
+        'status' => InactivityAudit::STATUS_OPEN_18,
+    ]);
+
+    $this->assertDatabaseMissing('offboarding_processes', [
         'collaborator_id' => $off->id,
         'kind' => OffboardingProcess::KIND_INACTIVITY,
     ]);
@@ -650,7 +655,7 @@ it('puts a yellow rh card on the board when the collaborator asks to leave', fun
     ]);
 });
 
-it('opens a dismissal card after 25 days without a daily rate and paints direction red', function () {
+it('does not open a dismissal card after 25 days without a daily rate', function () {
     $this->mock(WhatsAppNotifier::class, function (MockInterface $mock) {
         $mock->shouldIgnoreMissing();
         $mock->shouldReceive('removeFromStoreGroups')->andReturn(['result' => 'ok']);
@@ -667,15 +672,83 @@ it('opens a dismissal card after 25 days without a daily rate and paints directi
     $cards = collect(app(WorkHubService::class)->processStageBoard()['columns'])
         ->firstWhere('id', 'atendimento')['cards'];
 
-    expect(collect($cards)->pluck('title'))->toContain('Inativo Vinte Cinco');
-    expect(collect($cards)->firstWhere('title', 'Inativo Vinte Cinco')['collaborator_id'])->toBe($collaborator->id);
-    expect(collect($cards)->firstWhere('title', 'Inativo Vinte Cinco')['duty'])->toBe(OffboardingProcess::DUTY_RH);
+    expect(collect($cards)->pluck('title'))->not->toContain('Inativo Vinte Cinco');
+    $this->assertDatabaseMissing('offboarding_processes', [
+        'collaborator_id' => $collaborator->id,
+    ]);
 
-    $process = OffboardingProcess::query()->where('collaborator_id', $collaborator->id)->first();
+    $process = app(OffboardingService::class)->open(
+        $collaborator,
+        $rh,
+        OffboardingProcess::ORIGIN_COORDINATOR,
+        OffboardingProcess::KIND_INACTIVITY,
+        'Aberto a partir de inatividade.',
+    );
     app(OffboardingService::class)->startVerification($process, $rh);
 
     expect($process->fresh()->duty())->toBe(OffboardingProcess::DUTY_GESTOR);
     expect($process->fresh()->boardStageKey())->toBe('direcao');
+});
+
+it('reverts collaborators automatically sent to dismissal after 25 days without a daily', function () {
+    $this->mock(WhatsAppNotifier::class, function (MockInterface $mock) {
+        $mock->shouldIgnoreMissing();
+    });
+    $rh = makeRoleUser('rh');
+    $service = app(OffboardingService::class);
+    $automatic = Collaborator::factory()->create(['name' => 'Volta Da Demissao']);
+    $manual = Collaborator::factory()->create(['name' => 'Pedido Manual']);
+    $finished = Collaborator::factory()->create(['name' => 'Ja Desligado', 'active' => false]);
+
+    $autoProcess = $service->open(
+        $automatic,
+        $rh,
+        OffboardingProcess::ORIGIN_COORDINATOR,
+        OffboardingProcess::KIND_INACTIVITY,
+        InactiveCollaboratorDetector::AUTO_DISMISSAL_REASON,
+    );
+    $manualProcess = $service->open(
+        $manual,
+        $rh,
+        OffboardingProcess::ORIGIN_COORDINATOR,
+        OffboardingProcess::KIND_INACTIVITY,
+        'Aberto a partir de inatividade.',
+    );
+    $doneProcess = $service->open(
+        $finished,
+        $rh,
+        OffboardingProcess::ORIGIN_COORDINATOR,
+        OffboardingProcess::KIND_INACTIVITY,
+        InactiveCollaboratorDetector::AUTO_DISMISSAL_REASON,
+    );
+    $finished->update(['active' => false]);
+    $doneProcess->update([
+        'status' => OffboardingProcess::STAGE_DESLIGADO_CONCLUIDO,
+        'blocks_daily_rates' => true,
+        'deactivated_at' => now(),
+    ]);
+    InactivityAudit::create([
+        'collaborator_id' => $automatic->id,
+        'status' => InactivityAudit::STATUS_OPEN_25,
+        'days_without_daily' => 30,
+        'offboarding_process_id' => $autoProcess->id,
+    ]);
+
+    $names = app(InactiveCollaboratorDetector::class)->revertAutomaticDismissals();
+
+    expect($names)->toContain('Volta Da Demissao', 'Ja Desligado');
+    expect($names)->not->toContain('Pedido Manual');
+    expect($autoProcess->fresh()->status)->toBe(OffboardingProcess::STAGE_CANCELADO);
+    expect($autoProcess->fresh()->blocks_daily_rates)->toBeFalse();
+    expect(OffboardingProcess::blocksDailyRatesFor($automatic->id))->toBeFalse();
+    expect($manualProcess->fresh()->status)->toBe(OffboardingProcess::STAGE_ATENDIMENTO_RH);
+    expect($doneProcess->fresh()->status)->toBe(OffboardingProcess::STAGE_CANCELADO);
+    expect($doneProcess->fresh()->blocks_daily_rates)->toBeFalse();
+    expect($finished->fresh()->active)->toBeTrue();
+
+    $audit = InactivityAudit::query()->where('collaborator_id', $automatic->id)->first();
+    expect($audit->status)->toBe(InactivityAudit::STATUS_OPEN_18);
+    expect($audit->offboarding_process_id)->toBeNull();
 });
 
 it('refuses a dismissal card without a collaborator', function () {

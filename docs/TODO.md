@@ -15,6 +15,7 @@ Legenda: **feito** · **parcial** · **não existe**. “Parcial” = tem pedaç
 - [ ] **DT-001** — Reativar o desconto de INSS na folha do colaborador  
   Suspenso em 09/11/2026 (`Collaborator::INSS_PAYROLL_DEDUCTION_ENABLED = false`). Ninguém tem INSS abatido da diária; o pagamento volta integral.  
   Em janeiro/2027, desfazer: chave `true`, e volta o corte de 21/09/2026 com R$ 5,93.  
+  Diárias em aberto já gravadas com o desconto: `php artisan finance:restore-unpaid-inss-pay --apply`. Pago não entra.  
   Passo a passo: `docs/DEBITO-TECNICO.md`.
 
 ---
@@ -186,6 +187,15 @@ Quem dispara o pedido: líder/coordenador (e também o próprio colaborador, `OR
 4. Ligar `WhatsAppNotifier` a um provedor + eventos de diária/vaga/ponto (o gancho de desligamento/inatividade já chama o serviço)  
 5. Preencher `OffboardingDocuments` (upload, ASO, e-mail, retenção 2 anos) e tarefas RH desses tipos  
 6. Dashboard de rendimento (escala + faltas + ciclo RH), não só analytics financeiro  
+
+---
+
+## Débito técnico
+
+- [ ] **Pausado até janeiro/2027** — Voltar a mover o colaborador para a zona de demissão aos 25 dias sem diária  
+  O bloco está comentado em `InactiveCollaboratorDetector::detect()` (chamada de `open25`). O alerta de 18 dias continua.  
+  Quem já tinha entrado por essa regra sai com `php artisan rh:revert-inactivity-dismissals`.  
+  Em janeiro/2027: descomentar o bloco. Não apagar o método `open25`.
 
 ---
 
