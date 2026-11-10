@@ -66,7 +66,19 @@ class Collaborator extends Model
     /** Desconto fixo da tabela (INSS + INSS 13º). Não incide sobre ajuda de custo. */
     public const INSS_AMOUNT = 5.93;
 
+    /**
+     * TODO(janeiro/2027): reativar o desconto de INSS na folha.
+     * Suspenso em 09/11/2026. Com false, ninguém tem o valor abatido da diária.
+     * Desfazer em janeiro/2027: ver docs/DEBITO-TECNICO.md (DT-001).
+     */
+    public const INSS_PAYROLL_DEDUCTION_ENABLED = false;
+
     public function shouldDeductInss(): bool
+    {
+        return self::INSS_PAYROLL_DEDUCTION_ENABLED && $this->registeredOnOrAfterInssCutoff();
+    }
+
+    public function registeredOnOrAfterInssCutoff(): bool
     {
         if (blank($this->created_at)) {
             return false;

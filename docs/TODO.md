@@ -10,6 +10,15 @@ Legenda: **feito** · **parcial** · **não existe**. “Parcial” = tem pedaç
 
 ---
 
+## Prazo — janeiro/2027
+
+- [ ] **DT-001** — Reativar o desconto de INSS na folha do colaborador  
+  Suspenso em 09/11/2026 (`Collaborator::INSS_PAYROLL_DEDUCTION_ENABLED = false`). Ninguém tem INSS abatido da diária; o pagamento volta integral.  
+  Em janeiro/2027, desfazer: chave `true`, e volta o corte de 21/09/2026 com R$ 5,93.  
+  Passo a passo: `docs/DEBITO-TECNICO.md`.
+
+---
+
 ## Prioridade P0 — Imposto, empresas e competência fiscal
 
 Objetivo: dois controles de imposto independentes, estabelecimento vinculado à empresa correta, cálculo alinhado às tabelas do Simples Nacional.
@@ -21,7 +30,7 @@ Hoje `Company` **é o estabelecimento/loja** (CNPJ, rede, coordenador). Não há
   Falta: duas empresas fiscais (WA vs outra), isolamento de caixa/imposto/permissões como tenant.
 
 - [ ] **Parcial** — Dois controles de imposto (um por empresa), alíquotas/tabelas próprias e histórico  
-  Já existe: `config_table.tax_default` e `inss_default` **globais**; campo na diária (`tax_paid`, `inss_paid`); `companies.not_flashing` zera INSS; política de INSS por data de cadastro do colaborador (`Collaborator::shouldDeductInss`, corte 2026-09-11).  
+  Já existe: `config_table.tax_default` e `inss_default` **globais**; campo na diária (`tax_paid`, `inss_paid`); `companies.not_flashing` zera INSS; política de INSS por data de cadastro (`Collaborator::shouldDeductInss`, corte `INSS_EFFECTIVE_FROM`) **suspensa na folha até janeiro/2027** (DT-001, `docs/DEBITO-TECNICO.md`).  
   Falta: imposto por empresa jurídica, histórico de tabela, não sobrescrever o default global a cada lançamento.
 
 - [ ] **Parcial** — Estabelecimento → empresa (lançamentos herdam a regra)  

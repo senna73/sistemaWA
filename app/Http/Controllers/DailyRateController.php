@@ -130,6 +130,7 @@ class DailyRateController extends Controller
             'dailyRate' => null,
             'inss_amount' => Collaborator::INSS_AMOUNT,
             'inss_effective_from' => Collaborator::INSS_EFFECTIVE_FROM,
+            'inss_deduction_enabled' => Collaborator::INSS_PAYROLL_DEDUCTION_ENABLED,
             'imposto_pago' => ConfigTable::getValue('tax_default'),
         ]);
     }
@@ -298,6 +299,7 @@ class DailyRateController extends Controller
             'sections' => Section::all(),
             'inss_amount' => Collaborator::INSS_AMOUNT,
             'inss_effective_from' => Collaborator::INSS_EFFECTIVE_FROM,
+            'inss_deduction_enabled' => Collaborator::INSS_PAYROLL_DEDUCTION_ENABLED,
             'imposto_pago' => ConfigTable::getValue('tax_default'),
         ]);
     }

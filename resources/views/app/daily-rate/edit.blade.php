@@ -417,6 +417,12 @@ function getSelectedColaborator(colaboratorId){
 }
 
 function shouldDeductInss(collaborator) {
+    // TODO(janeiro/2027): DT-001 — ver docs/DEBITO-TECNICO.md
+    const deductionEnabled = @json($inss_deduction_enabled ?? false);
+    if (!deductionEnabled) {
+        return false;
+    }
+
     if (!collaborator || !collaborator.created_at) {
         return false;
     }
